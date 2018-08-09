@@ -1,3 +1,4 @@
+import math
 from .configs import SNAKE_SIZE, SNAKE_SPEED, SNAKE_SEPARATION, FPS, KEY, APPLE_SIZE
 
 
@@ -14,7 +15,7 @@ class Segment():
 class Snake():
 
     def __init__(self, x, y, head_color, body_color):
-        self.speed = SNAKE_SPEED
+        self.movement = ((SNAKE_SIZE + SNAKE_SEPARATION) + math.ceil(FPS * SNAKE_SPEED))
         seg = Segment(x + SNAKE_SEPARATION, y, head_color)
         self.stack = [seg]
         next_x = x
@@ -41,13 +42,13 @@ class Snake():
             last_segment = self.stack.pop(last_element)
         last_segment.direction = self.stack[0].direction
         if self.stack[0].direction == KEY["UP"]:
-            last_segment.y = self.stack[0].y - (SNAKE_SPEED * FPS) - SNAKE_SIZE - SNAKE_SEPARATION
+            last_segment.y = self.stack[0].y - self.movement
         elif self.stack[0].direction == KEY["DOWN"]:
-            last_segment.y = self.stack[0].y + (SNAKE_SPEED * FPS) + SNAKE_SIZE + SNAKE_SEPARATION
+            last_segment.y = self.stack[0].y + self.movement
         elif self.stack[0].direction == KEY["LEFT"]:
-            last_segment.x = self.stack[0].x - (SNAKE_SPEED * FPS) - SNAKE_SIZE - SNAKE_SEPARATION
+            last_segment.x = self.stack[0].x - self.movement
         elif self.stack[0].direction == KEY["RIGHT"]:
-            last_segment.x = self.stack[0].x + (SNAKE_SPEED * FPS) + SNAKE_SIZE + SNAKE_SEPARATION
+            last_segment.x = self.stack[0].x + self.movement
         self.stack.insert(0, last_segment)
 
     def grow(self):

@@ -26,7 +26,7 @@ def check_collision(objA, objB, objA_size=SNAKE_SIZE, objB_size=APPLE_SIZE):
     return False
 
 
-def check_cash(snake):
+def check_crash(snake):
     counter = 1
     stack = snake.stack
     while counter < len(stack) - 1:
@@ -97,7 +97,7 @@ if __name__ == '__main__':
             stop_game = True
 
         # Snake crash to its tail
-        if check_cash(snake):
+        if check_crash(snake):
             score -= 1
             stop_game = True
 
