@@ -55,8 +55,7 @@ def start_game():
 
 if __name__ == '__main__':
     pygame.init()
-    surface = pygame.image.load('./img/snake.png')
-    pygame.display.set_icon(surface)
+
     stop_game = False
     clock = pygame.time.Clock()
     font = pygame.font.Font(None, 20)
@@ -64,6 +63,8 @@ if __name__ == '__main__':
     size = width, height = W_WIDTH, W_HEIGHT
 
     screen = pygame.display.set_mode(size, pygame.HWSURFACE)
+
+    pygame.display.set_icon(pygame.image.load('./img/snake.png'))
     pygame.display.set_caption("Snake Plissken")
 
     score, snake, apples = start_game()
