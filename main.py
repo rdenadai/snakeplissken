@@ -7,14 +7,6 @@ from objects.configs import FPS, BLACK, WHITE, CRIMSON, GREEN, KEY, SNAKE_SIZE, 
 from objects.classes import Snake, Apple
 
 
-# obj = np.dtype([
-#     ('speed', np.float32, 0.1),
-#     ('size_x', np.int32, 10),
-#     ('size_y', np.int32, 10),
-# ])
-#player = np.array([(0.1, 10, 10)], dtype=obj)
-
-
 def check_collision(objA, objB, objA_size=SNAKE_SIZE, objB_size=APPLE_SIZE):
     if(
         objA.x < objB.x + objB_size and
@@ -68,7 +60,7 @@ if __name__ == '__main__':
     screen = pygame.display.set_mode(size, pygame.HWSURFACE)
     pygame.display.set_caption("Snake Plissken")
 
-    score, snake, apple = start_game()
+    score, snake, apple = start_game()   
     # Loop
     while True:
         for event in pygame.event.get():
