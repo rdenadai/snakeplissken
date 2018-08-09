@@ -3,7 +3,7 @@
 import sys, pygame
 from pygame.locals import *
 import numpy as np
-from objects.configs import FPS, BLACK, WHITE, CRIMSON, GREEN, KEY, SNAKE_SIZE, APPLE_SIZE
+from objects.configs import FPS, BLACK, WHITE, CRIMSON, GREEN, KEY, SNAKE_SIZE, APPLE_SIZE, APPLE_QTD
 from objects.classes import Snake, Apple
 
 
@@ -32,6 +32,10 @@ def draw_object(scr, color, position):
     pygame.draw.rect(scr, color, position)
 
 
+def get_apples():
+    return [reload_apple() for _ in range(APPLE_QTD)]
+
+
 def reload_apple():
     apple_x = np.random.choice(np.arange(10, width - 10, 10))
     apple_y = np.random.choice(np.arange(10, height - 10, 10))
@@ -45,12 +49,14 @@ def start_game():
     y = np.random.choice(np.arange(80, height - 80, 10))
     snake = Snake(x, y, GREEN, WHITE)
     # Start food?
-    apple = reload_apple()
-    return score, snake, apple
+    apples = get_apples()
+    return score, snake, apples
 
 
 if __name__ == '__main__':
     pygame.init()
+    surface = pygame.image.load('./img/snake.png')
+    pygame.display.set_icon(surface)
     stop_game = False
     clock = pygame.time.Clock()
     font = pygame.font.Font(None, 20)
@@ -60,7 +66,7 @@ if __name__ == '__main__':
     screen = pygame.display.set_mode(size, pygame.HWSURFACE)
     pygame.display.set_caption("Snake Plissken")
 
-    score, snake, apple = start_game()   
+    score, snake, apples = start_game()
     # Loop
     while True:
         for event in pygame.event.get():
@@ -91,15 +97,17 @@ if __name__ == '__main__':
         # Snake crash to its tail
         if check_crash(snake):
             score -= 1
+            apples = get_apples()
             stop_game = True
 
         # Clean screen
         screen.fill(BLACK)
 
         # Draw appple
-        if not apple:
-            apple = reload_apple()
-        draw_object(screen, apple.color, apple.position)
+        if len(apples) == 0:
+            apples = get_apples()
+        for apple in apples:
+            draw_object(screen, apple.color, apple.position)
 
         # Draw snake
         snake.move()
@@ -107,10 +115,12 @@ if __name__ == '__main__':
             draw_object(screen, segment.color, (segment.x, segment.y) + segment.size)
 
         # Check collision between snake and apple
-        if check_collision(snake.head(), apple):
-            apple = None
-            score += 1
-            snake.grow()
+        for i, apple in enumerate(apples):
+            if check_collision(snake.head(), apple):
+                apples[i] = None
+                score += 1
+                snake.grow()
+        apples = list(filter(None.__ne__, apples))
 
         # Print on the screen the score
         str_score = font.render(f'score: {score}', True, WHITE)
