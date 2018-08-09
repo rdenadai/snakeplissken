@@ -1,5 +1,8 @@
 FPS = 10
 
+W_WIDTH, W_HEIGHT = 640, 480
+
+
 BLACK = (0, 0, 0)
 CRIMSON = (220, 20, 60)
 WHITE = (255, 255, 255)

@@ -3,7 +3,7 @@
 import sys, pygame
 from pygame.locals import *
 import numpy as np
-from objects.configs import FPS, BLACK, WHITE, CRIMSON, GREEN, KEY, SNAKE_SIZE, APPLE_SIZE, APPLE_QTD
+from objects.configs import *
 from objects.classes import Snake, Apple
 
 
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     clock = pygame.time.Clock()
     font = pygame.font.Font(None, 20)
 
-    size = width, height = 640, 480
+    size = width, height = W_WIDTH, W_HEIGHT
 
     screen = pygame.display.set_mode(size, pygame.HWSURFACE)
     pygame.display.set_caption("Snake Plissken")
@@ -79,10 +79,10 @@ if __name__ == '__main__':
 
         # Key movement
         pressed = pygame.key.get_pressed()
-        if pressed[K_UP]: snake.head().direction = KEY['UP']
-        if pressed[K_DOWN]: snake.head().direction = KEY['DOWN']
-        if pressed[K_LEFT]: snake.head().direction = KEY['LEFT']
-        if pressed[K_RIGHT]: snake.head().direction = KEY['RIGHT']
+        if pressed[K_UP] and snake.head().direction != KEY['DOWN']: snake.head().direction = KEY['UP']
+        if pressed[K_DOWN] and snake.head().direction != KEY['UP']: snake.head().direction = KEY['DOWN']
+        if pressed[K_LEFT] and snake.head().direction != KEY['RIGHT']: snake.head().direction = KEY['LEFT']
+        if pressed[K_RIGHT] and snake.head().direction != KEY['LEFT']: snake.head().direction = KEY['RIGHT']
 
         # Check limits ! Border
         boundary_hit = False
