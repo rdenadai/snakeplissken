@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+# Model taken from https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
+
 class DQN(nn.Module):
 
     def __init__(self):
