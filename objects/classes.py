@@ -24,6 +24,7 @@ class Snake:
             self.stack.append(seg)
         self.size_x = len(self.stack) * SNAKE_SIZE
         self.size_y = SNAKE_SIZE
+        # Movement speed
         self.movement = ((SNAKE_SIZE + SNAKE_SEPARATION) + math.ceil(FPS * SNAKE_SPEED))
 
     def head(self):

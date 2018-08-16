@@ -1,81 +1,46 @@
 #!/usr/bin/env python
 
-import sys, pygame
+import sys, os
+import pygame
 from pygame.locals import *
-import numpy as np
 from objects.configs import *
-from objects.classes import Snake, Apple
-
-
-def check_collision(objA, objB, objA_size=SNAKE_SIZE, objB_size=APPLE_SIZE):
-    if(
-        objA.x < objB.x + objB_size and
-        objA.x + objA_size > objB.x and
-        objA.y < objB.y + objB_size and
-        objA.y + objA_size > objB.y
-    ):
-        return True
-    return False
-
-
-def check_crash(snake):
-    counter = 1
-    stack = snake.stack
-    while counter < len(stack) - 1:
-        if check_collision(stack[0], stack[counter], SNAKE_SIZE, SNAKE_SIZE):
-            return True
-        counter += 1
-    return False
+from utils.utilities import start_game, check_crash, check_collision, get_apples
 
 
 def draw_object(scr, color, position):
     pygame.draw.rect(scr, color, position)
 
 
-def get_apples():
-    return [reload_apple() for _ in range(APPLE_QTD)]
-
-
-def reload_apple():
-    apple_x = np.random.choice(np.arange(10, width - 10, 10))
-    apple_y = np.random.choice(np.arange(10, height - 10, 10))
-    return Apple(apple_x, apple_y, CRIMSON)
-
-
-def start_game():
-    score = 0
-    # Create the player
-    x = np.random.choice(np.arange(80, width - 80, 10))
-    y = np.random.choice(np.arange(80, height - 80, 10))
-    snake = Snake(x, y, GREEN, WHITE)
-    # Start food?
-    apples = get_apples()
-    return score, snake, apples
-
-
 if __name__ == '__main__':
+    # In linux center the window
+    os.environ['SDL_VIDEO_CENTERED'] = '1'
+
+    # Pygame init loop
     pygame.init()
 
+    # confs
     stop_game = False
     clock = pygame.time.Clock()
     font = pygame.font.Font(None, 20)
 
+    # Screen size
     size = width, height = W_WIDTH, W_HEIGHT
-
     screen = pygame.display.set_mode(size, pygame.HWSURFACE)
 
+    # Icon and Title
     pygame.display.set_icon(pygame.image.load('./img/snake.png'))
     pygame.display.set_caption("Snake Plissken")
 
-    score, snake, apples = start_game()
-    # Loop
+    score, snake, apples = start_game(width, height)
+    # Game Main loop
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit()
 
+        # Stop the game, and restart
         if stop_game:
-            score, snake, apple = start_game()
+            score, snake, apple = start_game(width, height)
             stop_game = False
 
         # Key movement
@@ -98,7 +63,7 @@ if __name__ == '__main__':
         # Snake crash to its tail
         if check_crash(snake):
             score -= 1
-            apples = get_apples()
+            apples = get_apples(width, height)
             stop_game = True
 
         # Clean screen
@@ -106,7 +71,7 @@ if __name__ == '__main__':
 
         # Draw appple
         if len(apples) == 0:
-            apples = get_apples()
+            apples = get_apples(width, height)
         for apple in apples:
             draw_object(screen, apple.color, apple.position)
 
@@ -121,6 +86,7 @@ if __name__ == '__main__':
                 apples[i] = None
                 score += 1
                 snake.grow()
+        # Clear empty apples
         apples = list(filter(None.__ne__, apples))
 
         # Print on the screen the score
