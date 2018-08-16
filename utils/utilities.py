@@ -2,6 +2,7 @@ from objects.configs import *
 from objects.classes import Snake, Apple
 import numpy as np
 from numba import jit
+import pygame
 
 
 @jit
@@ -48,3 +49,7 @@ def start_game(width, height):
     # Start food?
     apples = get_apples(width, height)
     return score, snake, apples
+
+
+def save_game_screen(fname, screen):
+    pygame.image.save(screen, fname)

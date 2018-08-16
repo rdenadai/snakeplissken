@@ -3,8 +3,9 @@
 import sys, os
 import pygame
 from pygame.locals import *
+from PIL import Image
 from objects.configs import *
-from utils.utilities import start_game, check_crash, check_collision, get_apples
+from utils.utilities import *
 
 
 def draw_object(scr, color, position):
@@ -34,6 +35,10 @@ if __name__ == '__main__':
     score, snake, apples = start_game(width, height)
     # Game Main loop
     while True:
+        img = pygame.surfarray.array3d(screen)[::-1]
+        im = Image.fromarray(img)
+        im.save("/home/rdenadai/your_file.png")
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit()
