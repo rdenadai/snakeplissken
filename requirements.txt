@@ -1,6 +1,6 @@
 numpy==1.15.0
 pygame==1.9.4
 Pillow==5.2.0
-
+numba==0.39.0
 http://download.pytorch.org/whl/cpu/torch-0.4.1.post2-cp37-cp37m-linux_x86_64.whl
 torchvision==0.2.1
