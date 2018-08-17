@@ -3,6 +3,9 @@ from objects.classes import Snake, Apple
 import numpy as np
 from numba import jit
 import pygame
+import torch
+import torchvision.transforms as T
+from PIL import Image
 
 
 @jit
@@ -51,5 +54,13 @@ def start_game(width, height):
     return score, snake, apples
 
 
-def save_game_screen(fname, screen):
-    pygame.image.save(screen, fname)
+@jit
+def get_game_screen(screen, device):
+    resize = T.Compose([T.ToPILImage(), T.ToTensor()])
+    img = torch.from_numpy(np.rot90(pygame.surfarray.array3d(screen))[::-1])
+    return resize(img).unsqueeze(0).to(device)
+
+
+def save_game_screen(fname, img):
+    im = Image.fromarray(img)
+    im.save(fname)
