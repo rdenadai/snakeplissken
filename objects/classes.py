@@ -13,6 +13,10 @@ class Segment:
 
 
 class Snake:
+    """
+    Class that represents the Snake...
+    part of this code was taken from: https://gist.github.com/someoneigna/5022021
+    """
 
     def __init__(self, x, y, head_color, body_color):
         seg = Segment(x + SNAKE_SEPARATION, y, head_color)
