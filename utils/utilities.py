@@ -20,7 +20,7 @@ def check_collision(objA, objB, objA_size=SNAKE_SIZE, objB_size=APPLE_SIZE):
     return False
 
 
-@jit
+@jit(parallel=True)
 def check_crash(snake):
     counter = 1
     stack = snake.stack
@@ -35,14 +35,14 @@ def get_apples(width, height):
     return [reload_apple(width, height) for _ in range(APPLE_QTD)]
 
 
-@jit
+@jit(parallel=True)
 def reload_apple(width, height):
     apple_x = np.random.choice(np.arange(10, width - 10, 10))
     apple_y = np.random.choice(np.arange(10, height - 10, 10))
     return Apple(apple_x, apple_y, CRIMSON)
 
 
-@jit
+@jit(parallel=True)
 def start_game(width, height):
     score = 0
     # Create the player
@@ -54,7 +54,7 @@ def start_game(width, height):
     return score, snake, apples
 
 
-@jit
+@jit(parallel=True)
 def get_game_screen(screen, device):
     resize = T.Compose([T.ToPILImage(), T.ToTensor()])
     img = torch.from_numpy(np.rot90(pygame.surfarray.array3d(screen))[::-1])
