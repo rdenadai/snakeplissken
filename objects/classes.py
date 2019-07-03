@@ -1,5 +1,5 @@
 import math
-from .configs import SNAKE_SIZE, SNAKE_SPEED, SNAKE_SEPARATION, FPS, KEY, APPLE_SIZE
+from configs import SNAKE_SIZE, SNAKE_SPEED, SNAKE_SEPARATION, FPS, KEY, APPLE_SIZE
 
 
 class Segment:
@@ -36,7 +36,7 @@ class Snake:
         self.size_x = len(self.stack) * SNAKE_SIZE
         self.size_y = SNAKE_SIZE
         # Movement speed
-        self.movement = (SNAKE_SIZE + SNAKE_SEPARATION) * math.ceil(FPS * SNAKE_SPEED)
+        self.movement = (SNAKE_SIZE + SNAKE_SEPARATION) + SNAKE_SPEED
 
     def head(self):
         return self.stack[0]

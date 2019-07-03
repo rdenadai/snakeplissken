@@ -1,8 +1,11 @@
 import random
+import math
 from collections import namedtuple
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from configs import *
 
 
 # Code taken from https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html
@@ -32,16 +35,27 @@ class ReplayMemory(object):
 
 
 class DQN(nn.Module):
-    def __init__(self):
+    def __init__(self, h, w, outputs):
         super(DQN, self).__init__()
-        self.conv1 = nn.Conv2d(3, 16, kernel_size=5, stride=4)
+        self.conv1 = nn.Conv2d(3, 16, kernel_size=5, stride=2)
         self.bn1 = nn.BatchNorm2d(16)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=2)
         self.bn2 = nn.BatchNorm2d(32)
-        self.conv3 = nn.Conv2d(32, 32, kernel_size=5, stride=1)
+        self.conv3 = nn.Conv2d(32, 32, kernel_size=5, stride=2)
         self.bn3 = nn.BatchNorm2d(32)
-        self.head = nn.Linear(448, 4)
 
+        # Number of Linear input connections depends on output of conv2d layers
+        # and therefore the input image size, so compute it.
+        def conv2d_size_out(size, kernel_size=5, stride=2):
+            return (size - (kernel_size - 1) - 1) // stride + 1
+
+        convw = conv2d_size_out(conv2d_size_out(conv2d_size_out(w)))
+        convh = conv2d_size_out(conv2d_size_out(conv2d_size_out(h)))
+        linear_input_size = convw * convh * 32
+        self.head = nn.Linear(linear_input_size, outputs)
+
+    # Called with either one element to determine next action, or a batch
+    # during optimization. Returns tensor([[left0exp,right0exp]...]).
     def forward(self, x):
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
@@ -49,7 +63,25 @@ class DQN(nn.Module):
         return self.head(x.view(x.size(0), -1))
 
 
-def optimize_model():
+def select_action(device, state, n_actions, steps_done, policy_net):
+    sample = np.random.random()
+    eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(
+        -1.0 * steps_done / EPS_DECAY
+    )
+    steps_done += 1
+    if sample > eps_threshold:
+        with torch.no_grad():
+            # t.max(1) will return largest column value of each row.
+            # second column on max result is index of where max element was
+            # found, so we pick action with the larger expected reward.
+            return policy_net(state).max(1)[1].view(1, 1)
+    else:
+        return torch.tensor(
+            [[random.randrange(n_actions)]], device=device, dtype=torch.long
+        )
+
+
+def optimize_model(device, policy_net, target_net, memory, optimizer):
     if len(memory) < BATCH_SIZE:
         return
     transitions = memory.sample(BATCH_SIZE)

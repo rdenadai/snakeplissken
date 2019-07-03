@@ -4,7 +4,7 @@ import pygame
 from PIL import Image
 import torch
 import torchvision.transforms as T
-from objects.configs import *
+from configs import *
 from objects.classes import Snake, Apple
 
 
@@ -37,9 +37,14 @@ def check_crash(snake):
 
 
 def get_game_screen(screen, device):
-    resize = T.Compose([T.ToPILImage(), T.ToTensor()])
-    img = torch.from_numpy(np.rot90(pygame.surfarray.array3d(screen))[::-1])
-    return resize(img).unsqueeze(0).to(device)
+    resize = T.Compose(
+        [T.ToPILImage(), T.Resize(80, interpolation=Image.CUBIC), T.ToTensor()]
+    )
+
+    screen = np.rot90(pygame.surfarray.array3d(screen))[::-1].transpose((2, 0, 1))
+    screen = np.ascontiguousarray(screen, dtype=np.float32) / 255
+    screen = torch.from_numpy(screen)
+    return resize(screen).unsqueeze(0).to(device)
 
 
 def save_game_screen(fname, img):
