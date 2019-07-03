@@ -7,17 +7,16 @@ import torch
 import torch.optim as optim
 from objects.configs import *
 from utils.utilities import *
-from ai.model import DQN
-from ai.memory import ReplayMemory
+from ai.model import DQN, ReplayMemory
 
 
 def draw_object(scr, color, position):
     pyg.draw.rect(scr, color, position)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # In linux center the window
-    os.environ['SDL_VIDEO_CENTERED'] = '1'
+    os.environ["SDL_VIDEO_CENTERED"] = "1"
 
     # if gpu is to be used
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -35,7 +34,7 @@ if __name__ == '__main__':
     screen = pyg.display.set_mode(size, pyg.HWSURFACE)
 
     # Icon and Title
-    pyg.display.set_icon(pyg.image.load('./img/snake.png'))
+    pyg.display.set_icon(pyg.image.load("./img/snake.png"))
     pyg.display.set_caption("Snake Plissken")
 
     # DQN Algoritm
@@ -65,17 +64,25 @@ if __name__ == '__main__':
 
         # Key movement
         pressed = pyg.key.get_pressed()
-        if pressed[K_UP] and snake.head().direction != KEY['DOWN']: snake.head().direction = KEY['UP']
-        if pressed[K_DOWN] and snake.head().direction != KEY['UP']: snake.head().direction = KEY['DOWN']
-        if pressed[K_LEFT] and snake.head().direction != KEY['RIGHT']: snake.head().direction = KEY['LEFT']
-        if pressed[K_RIGHT] and snake.head().direction != KEY['LEFT']: snake.head().direction = KEY['RIGHT']
+        if pressed[K_UP] and snake.head().direction != KEY["DOWN"]:
+            snake.head().direction = KEY["UP"]
+        if pressed[K_DOWN] and snake.head().direction != KEY["UP"]:
+            snake.head().direction = KEY["DOWN"]
+        if pressed[K_LEFT] and snake.head().direction != KEY["RIGHT"]:
+            snake.head().direction = KEY["LEFT"]
+        if pressed[K_RIGHT] and snake.head().direction != KEY["LEFT"]:
+            snake.head().direction = KEY["RIGHT"]
 
         # Check limits ! Border
         boundary_hit = False
-        if snake.head().x <= 0: boundary_hit = True
-        if snake.head().x >= width: boundary_hit = True
-        if snake.head().y <= 0: boundary_hit = True
-        if snake.head().y >= height-10: boundary_hit = True
+        if snake.head().x <= 0:
+            boundary_hit = True
+        if snake.head().x >= width:
+            boundary_hit = True
+        if snake.head().y <= 0:
+            boundary_hit = True
+        if snake.head().y >= height - 10:
+            boundary_hit = True
         if boundary_hit:
             score -= 100
             stop_game = True
@@ -110,7 +117,7 @@ if __name__ == '__main__':
         apples = list(filter(None.__ne__, apples))
 
         # Print on the screen the score
-        str_score = font.render(f'score: {score}', True, WHITE)
+        str_score = font.render(f"score: {score}", True, WHITE)
         screen.blit(str_score, (5, 5))
 
         # Routines

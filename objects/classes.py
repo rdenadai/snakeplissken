@@ -3,13 +3,20 @@ from .configs import SNAKE_SIZE, SNAKE_SPEED, SNAKE_SEPARATION, FPS, KEY, APPLE_
 
 
 class Segment:
-
     def __init__(self, x, y, color):
         self.x = x
         self.y = y
         self.color = color
         self.size = (SNAKE_SIZE, SNAKE_SIZE)
-        self.direction = KEY['RIGHT']
+        self.direction = KEY["RIGHT"]
+
+
+class Apple:
+    def __init__(self, x, y, color):
+        self.x = x
+        self.y = y
+        self.color = color
+        self.position = (x, y, APPLE_SIZE, APPLE_SIZE)
 
 
 class Snake:
@@ -29,7 +36,7 @@ class Snake:
         self.size_x = len(self.stack) * SNAKE_SIZE
         self.size_y = SNAKE_SIZE
         # Movement speed
-        self.movement = ((SNAKE_SIZE + SNAKE_SEPARATION) + math.ceil(FPS * SNAKE_SPEED))
+        self.movement = (SNAKE_SIZE + SNAKE_SEPARATION) * math.ceil(FPS * SNAKE_SPEED)
 
     def head(self):
         return self.stack[0]
@@ -57,18 +64,9 @@ class Snake:
         self.stack.insert(0, last_segment)
 
     def grow(self):
-        last_element = len(self.stack)-1
+        last_element = len(self.stack) - 1
         x = self.stack[last_element].x
         y = self.stack[last_element].y
         color = self.stack[last_element].color
         seg = Segment(x + SNAKE_SEPARATION, y, color)
         self.stack.append(seg)
-
-
-class Apple:
-
-    def __init__(self, x, y, color):
-        self.x = x
-        self.y = y
-        self.color = color
-        self.position = (x, y, APPLE_SIZE, APPLE_SIZE)
