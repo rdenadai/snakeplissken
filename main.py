@@ -152,6 +152,7 @@ if __name__ == "__main__":
         pyg.display.flip()
         pyg.display.update()
 
+        # AI
         last_screen = current_screen
         current_screen = get_game_screen(screen, device)
         next_state = current_screen - last_screen
