@@ -21,6 +21,7 @@ if __name__ == "__main__":
 
     # if gpu is to be used
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Device: {device}")
 
     # Pygame init loop
     pyg.init()
@@ -31,6 +32,7 @@ if __name__ == "__main__":
     font = pyg.font.Font(None, 20)
     n_actions = 4
     steps_done = 0
+    i_epoch = 0
     n_game = 0
     action = None
 
@@ -50,7 +52,7 @@ if __name__ == "__main__":
     # Optimizer
     optimizer = optim.RMSprop(policy_net.parameters())
     # Memory
-    memory = ReplayMemory(10000)
+    memory = ReplayMemory(50000)
 
     # Load image screen data as torch Tensor : State
     last_screen = get_game_screen(screen, device)
@@ -69,8 +71,9 @@ if __name__ == "__main__":
             # Number of games
             n_game += 1
             # Update the target network, copying all weights and biases in DQN
-            if steps_done % TARGET_UPDATE == 0:
+            if i_epoch % TARGET_UPDATE == 0:
                 target_net.load_state_dict(policy_net.state_dict())
+                i_epoch += 1
             # Load again the new screen
             last_screen = get_game_screen(screen, device)
             current_screen = get_game_screen(screen, device)
@@ -148,7 +151,7 @@ if __name__ == "__main__":
 
         # Print on the screen the score
         str_score = font.render(
-            f"score: {score}, epoch: {steps_done} game: {n_game}", True, WHITE
+            f"score: {round(score)}, epoch: {steps_done} game: {n_game}", True, WHITE
         )
         screen.blit(str_score, (5, 5))
 
@@ -156,6 +159,7 @@ if __name__ == "__main__":
         clock.tick(FPS)
         pyg.display.flip()
         pyg.display.update()
+        score += 1e-5
 
         # AI
         last_screen = current_screen
