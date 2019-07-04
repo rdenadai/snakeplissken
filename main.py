@@ -64,18 +64,23 @@ if __name__ == "__main__":
             if event.type == pyg.QUIT:
                 sys.exit()
 
-        action = select_action(device, state, n_actions, steps_done, policy_net)
-        reward = torch.tensor([score], device=device, dtype=torch.float)
-
         # Stop the game, and restart
         if stop_game:
             # Number of games
             n_game += 1
             # Update the target network, copying all weights and biases in DQN
-            target_net.load_state_dict(policy_net.state_dict())
+            if steps_done % TARGET_UPDATE == 0:
+                target_net.load_state_dict(policy_net.state_dict())
+            # Load again the new screen
+            last_screen = get_game_screen(screen, device)
+            current_screen = get_game_screen(screen, device)
+            state = current_screen - last_screen
             # Restart
             score, snake, apples = start_game(width, height)
             stop_game = False
+
+        action = select_action(device, state, n_actions, steps_done, policy_net)
+        reward = torch.tensor([score], device=device, dtype=torch.float)
 
         # Key movement
         K = action.item()
