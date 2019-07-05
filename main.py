@@ -60,7 +60,7 @@ if __name__ == "__main__":
     # Optimizer
     optimizer = optim.RMSprop(policy_net.parameters())
     # Memory
-    memory = ReplayMemory(12500)
+    memory = ReplayMemory(15000)
 
     # Load image screen data as torch Tensor : Initial State
     last_screen = get_game_screen(screen, device)
@@ -97,7 +97,6 @@ if __name__ == "__main__":
 
         # Action and reward of the agent
         action = select_action(device, state, n_actions, steps_done, policy_net)
-        reward = torch.tensor([score], device=device, dtype=torch.float)
 
         # Key movements of agent to be done
         K = action.item()
@@ -164,7 +163,7 @@ if __name__ == "__main__":
         apples = list(filter(None.__ne__, apples))
 
         # Print on the screen the score and other info
-        steps = f"{steps_done / 1000}k" if steps_done > 50 else steps_done
+        steps = f"{np.round(steps_done / 1000)}k" if steps_done > 1000 else steps_done
         str_score = font.render(
             f"score: {round(score)}, steps: {steps}, game: {n_game}", True, WHITE
         )
@@ -177,7 +176,8 @@ if __name__ == "__main__":
 
         # Add to score some minor points for being alive!
         score += 1e-5
-
+        # Reward for the agent
+        reward = torch.tensor([score], device=device, dtype=torch.float)
         # Next state for the agent
         last_screen = current_screen
         current_screen = get_game_screen(screen, device)
