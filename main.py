@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
 import sys, os
+import time
 import pygame as pyg
 from pygame.locals import *
 import torch
 import torch.optim as optim
+import torch.nn.functional as F
 from configs import *
 from utils.utilities import *
-import torch.nn.functional as F
 from ai.model import DQN, ReplayMemory, Transition, select_action
 
 
@@ -26,14 +27,21 @@ if __name__ == "__main__":
     # Pygame init loop
     pyg.init()
 
-    # confs
+    # confs for pygame
     stop_game = False
     clock = pyg.time.Clock()
     font = pyg.font.Font(None, 20)
+    # number o actions the agent can do
     n_actions = 4
+    # number of steps done, each step is a run in while loop
     steps_done = 0
+    # the epoch we are running
     i_epoch = 0
+    # number of games played
     n_game = 0
+    # time between start and maximum time before reload some elements (in case apples)
+    elapsed_time = 0
+    # Action to be executed by the agent
     action = None
 
     # Screen size
@@ -52,40 +60,46 @@ if __name__ == "__main__":
     # Optimizer
     optimizer = optim.RMSprop(policy_net.parameters())
     # Memory
-    memory = ReplayMemory(50000)
+    memory = ReplayMemory(12500)
 
-    # Load image screen data as torch Tensor : State
+    # Load image screen data as torch Tensor : Initial State
     last_screen = get_game_screen(screen, device)
     current_screen = get_game_screen(screen, device)
     state = current_screen - last_screen
 
+    # Game elements started
     score, snake, apples = start_game(width, height)
+
     # Game Main loop
     while True:
+        start = time.time()
         for event in pyg.event.get():
             if event.type == pyg.QUIT:
                 sys.exit()
 
         # Stop the game, and restart
         if stop_game:
-            # Number of games
+            # Zeroed elapsed time
+            elapsed_time = 0
+            # Number of games +1
             n_game += 1
             # Update the target network, copying all weights and biases in DQN
             if i_epoch % TARGET_UPDATE == 0:
                 target_net.load_state_dict(policy_net.state_dict())
                 i_epoch += 1
-            # Load again the new screen
+            # Load again the new screen: Initial State
             last_screen = get_game_screen(screen, device)
             current_screen = get_game_screen(screen, device)
             state = current_screen - last_screen
-            # Restart
+            # Restart game elements
             score, snake, apples = start_game(width, height)
             stop_game = False
 
+        # Action and reward of the agent
         action = select_action(device, state, n_actions, steps_done, policy_net)
         reward = torch.tensor([score], device=device, dtype=torch.float)
 
-        # Key movement
+        # Key movements of agent to be done
         K = action.item()
         if K == 0 and snake.head().direction != KEY["DOWN"]:
             snake.head().direction = KEY["UP"]
@@ -106,7 +120,7 @@ if __name__ == "__main__":
         # if pressed[K_RIGHT] and snake.head().direction != KEY["LEFT"]:
         #     snake.head().direction = KEY["RIGHT"]
 
-        # Check limits ! Border
+        # Check limits ! Border of screen
         boundary_hit = False
         if snake.head().x <= 0:
             boundary_hit = True
@@ -129,7 +143,7 @@ if __name__ == "__main__":
         # Clean screen
         screen.fill(BLACK)
 
-        # Draw appple
+        # Draw appples
         if len(apples) == 0:
             apples = get_apples(width, height)
         for apple in apples:
@@ -149,19 +163,22 @@ if __name__ == "__main__":
         # Clear empty apples
         apples = list(filter(None.__ne__, apples))
 
-        # Print on the screen the score
+        # Print on the screen the score and other info
+        steps = f"{steps_done / 1000}k" if steps_done > 50 else steps_done
         str_score = font.render(
-            f"score: {round(score)}, epoch: {steps_done} game: {n_game}", True, WHITE
+            f"score: {round(score)}, steps: {steps}, game: {n_game}", True, WHITE
         )
         screen.blit(str_score, (5, 5))
 
-        # Routines
+        # Routines of pygame
         clock.tick(FPS)
         pyg.display.flip()
         pyg.display.update()
+
+        # Add to score some minor points for being alive!
         score += 1e-5
 
-        # AI
+        # Next state for the agent
         last_screen = current_screen
         current_screen = get_game_screen(screen, device)
         next_state = current_screen - last_screen
@@ -223,5 +240,12 @@ if __name__ == "__main__":
             optimizer.step()
         # ----------------------------------------
 
+        # One step done in the whole game...
         steps_done += 1
+
+        # Reload apples position after some time
+        elapsed_time += time.time() - start
+        if elapsed_time > APPLE_RELOAD_TIME:
+            elapsed_time = 0
+            apples = get_apples(width, height)
 
