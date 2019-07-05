@@ -60,7 +60,7 @@ if __name__ == "__main__":
     # Optimizer
     optimizer = optim.RMSprop(policy_net.parameters())
     # Memory
-    memory = ReplayMemory(15000)
+    memory = ReplayMemory(25000)
 
     # Load image screen data as torch Tensor : Initial State
     last_screen = get_game_screen(screen, device)
