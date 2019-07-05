@@ -249,3 +249,6 @@ if __name__ == "__main__":
             elapsed_time = 0
             apples = get_apples(width, height)
 
+        if steps_done % 5000 == 0:
+            torch.save(policy_net, "snakeplissken.dqn_policy_net.model")
+            # policy_net = torch.load("dqn_snakeplissken")
