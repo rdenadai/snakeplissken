@@ -36,7 +36,7 @@ def check_crash(snake):
     return False
 
 
-def get_game_screen(x, y, screen, device):
+def get_game_screen(screen, device):
     resize = T.Compose(
         [T.ToPILImage(), T.Resize(60, interpolation=Image.BILINEAR), T.ToTensor()]
     )
