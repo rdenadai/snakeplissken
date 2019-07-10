@@ -1,5 +1,4 @@
 import random
-import math
 from collections import namedtuple
 import numpy as np
 import torch
@@ -53,8 +52,8 @@ class DQN(nn.Module):
         convh = conv2d_size_out(conv2d_size_out(conv2d_size_out(h)))
         linear_input_size = convw * convh * 64
         self.fc0 = nn.Linear(linear_input_size, 512)
-        self.fc1 = nn.Linear(512, 256)
-        self.head = nn.Linear(256, outputs)
+        self.fc1 = nn.Linear(512, 512)
+        self.head = nn.Linear(512, outputs)
 
     # Called with either one element to determine next action, or a batch
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
@@ -65,21 +64,3 @@ class DQN(nn.Module):
         x = F.relu(self.fc0(x.view(x.size(0), -1)))
         x = F.relu(self.fc1(x))
         return self.head(x)
-
-
-def select_action(device, state, n_actions, steps_done, policy_net):
-    sample = np.random.random()
-    eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(
-        -1.0 * steps_done / EPS_DECAY
-    )
-    steps_done += 1
-    if sample > eps_threshold:
-        with torch.no_grad():
-            # t.max(1) will return largest column value of each row.
-            # second column on max result is index of where max element was
-            # found, so we pick action with the larger expected reward.
-            return policy_net(state).max(1)[1].view(1, 1)
-    else:
-        return torch.tensor(
-            [[random.randrange(n_actions)]], device=device, dtype=torch.long
-        )

@@ -5,13 +5,13 @@ from PIL import Image
 import torch
 import torchvision.transforms as T
 from configs import *
-from objects.classes import Snake, Apple
+from objects.classes import Snake, Apple, Wall
 
 
 @jit(parallel=True, nopython=True)
 def random_position(x, y, width, height):
-    x = np.random.choice(np.arange(x, width - x, 10))
-    y = np.random.choice(np.arange(y, height - y, 10))
+    x = np.random.choice(np.arange((x * 2), width - (x * 2), 10))
+    y = np.random.choice(np.arange((y * 2), height - (y * 2), 10))
     return x, y
 
 
@@ -38,11 +38,10 @@ def check_crash(snake):
 
 def get_game_screen(screen, device):
     resize = T.Compose(
-        [T.ToPILImage(), T.Resize(80, interpolation=Image.CUBIC), T.ToTensor()]
+        [T.ToPILImage(), T.Resize(60, interpolation=Image.BILINEAR), T.ToTensor()]
     )
-
     screen = np.rot90(pygame.surfarray.array3d(screen))[::-1].transpose((2, 0, 1))
-    screen = np.ascontiguousarray(screen, dtype=np.float32) / 255
+    screen = np.ascontiguousarray(screen, dtype=np.float32)
     screen = torch.from_numpy(screen)
     return resize(screen).unsqueeze(0).to(device)
 
@@ -63,9 +62,16 @@ def get_apples(width, height):
 
 def start_game(width, height):
     score = 0
+    # Borders
+    wall = (
+        [Wall(x, 0, GRAY) for x in np.arange(0, width, 10)]
+        + [Wall(x, height - 10, GRAY) for x in np.arange(0, width, 10)]
+        + [Wall(0, y, GRAY) for y in np.arange(0, height, 10)]
+        + [Wall(width - 10, y, GRAY) for y in np.arange(0, height, 10)]
+    )
     # Create the player
-    x, y = random_position(80, 80, width, height)
+    x, y = random_position(20, 20, width, height)
     snake = Snake(x, y, GREEN, WHITE)
     # Start food?
     apples = get_apples(width, height)
-    return score, snake, apples
+    return score, wall, snake, apples

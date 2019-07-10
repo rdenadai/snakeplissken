@@ -2,6 +2,7 @@
 
 import sys, os
 import time
+import random
 import pygame as pyg
 from pygame.locals import *
 import torch
@@ -9,11 +10,28 @@ import torch.optim as optim
 import torch.nn.functional as F
 from configs import *
 from utils.utilities import *
-from ai.model import DQN, ReplayMemory, Transition, select_action
+from ai.model import DQN, ReplayMemory, Transition
 
 
 def draw_object(scr, color, position):
     pyg.draw.rect(scr, color, position)
+
+
+def select_action(state, n_actions, steps_done):
+    sample = np.random.random()
+    eps_threshold = EPS_END + (EPS_START - EPS_END) * np.exp(
+        -1.0 * steps_done / EPS_DECAY
+    )
+    if sample > eps_threshold:
+        with torch.no_grad():
+            # t.max(1) will return largest column value of each row.
+            # second column on max result is index of where max element was
+            # found, so we pick action with the larger expected reward.
+            return policy_net(state).max(1)[1].view(1, 1)
+    else:
+        return torch.tensor(
+            [[random.randrange(n_actions)]], device=device, dtype=torch.long
+        )
 
 
 if __name__ == "__main__":
@@ -43,6 +61,11 @@ if __name__ == "__main__":
     elapsed_time = 0
     # Action to be executed by the agent
     action = None
+    # Load policy file
+    load_models = True
+    # Train phase
+    train = True
+    exploit = True
 
     # Screen size
     size = width, height = W_WIDTH, W_HEIGHT
@@ -52,15 +75,23 @@ if __name__ == "__main__":
     pyg.display.set_icon(pyg.image.load("./img/snake.png"))
     pyg.display.set_caption("Snake Plissken")
 
+    # print(get_game_screen(screen, device).shape)
     # DQN Algoritm
-    policy_net = DQN(80, 106, n_actions).to(device)
-    target_net = DQN(80, 106, n_actions).to(device)
+    if load_models:
+        policy_net = torch.load("snakeplissken.dqn_policy_net.model")
+        target_net = torch.load("snakeplissken.dqn_target_net.model")
+    else:
+        policy_net = DQN(60, 60, n_actions).to(device)
+        target_net = DQN(60, 60, n_actions).to(device)
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
     # Optimizer
-    optimizer = optim.RMSprop(policy_net.parameters())
+    optimizer = optim.RMSprop(
+        policy_net.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM
+    )
+    # optimizer = optim.Adam(policy_net.parameters(), lr=LEARNING_RATE)
     # Memory
-    memory = ReplayMemory(25000)
+    memory = ReplayMemory(MEM_LENGTH)
 
     # Load image screen data as torch Tensor : Initial State
     last_screen = get_game_screen(screen, device)
@@ -68,7 +99,10 @@ if __name__ == "__main__":
     state = current_screen - last_screen
 
     # Game elements started
-    score, snake, apples = start_game(width, height)
+    score, wall, snake, apples = start_game(width, height)
+
+    t_start_game = time.time()
+    eating_time = time.time()
 
     # Game Main loop
     while True:
@@ -79,24 +113,42 @@ if __name__ == "__main__":
 
         # Stop the game, and restart
         if stop_game:
+            print(
+                f"Game end => score: {np.round(score, 5)}, steps: {steps}, game: {n_game}"
+            )
+            stop_game = False
+            t_start_game = time.time()
             # Zeroed elapsed time
             elapsed_time = 0
             # Number of games +1
             n_game += 1
             # Update the target network, copying all weights and biases in DQN
-            if i_epoch % TARGET_UPDATE == 0:
+            if i_epoch % TARGET_UPDATE == 0 and train:
+                print("Model saved...")
+                torch.save(policy_net, "snakeplissken.dqn_policy_net.model")
+                torch.save(target_net, "snakeplissken.dqn_target_net.model")
+                print(f"Running for: {np.round(time.time() - t_start_game, 2)} secs")
+                print("Update target network...")
                 target_net.load_state_dict(policy_net.state_dict())
-                i_epoch += 1
+            i_epoch += 1
             # Load again the new screen: Initial State
             last_screen = get_game_screen(screen, device)
             current_screen = get_game_screen(screen, device)
             state = current_screen - last_screen
             # Restart game elements
-            score, snake, apples = start_game(width, height)
-            stop_game = False
+            score, wall, snake, apples = start_game(width, height)
+
+            # if train and not exploit:
+            #     num = int(np.random.uniform(0, 5))
+            #     for i in range(0, num):
+            #         snake.grow()
+            #         score += APPLE_PRIZE
 
         # Action and reward of the agent
-        action = select_action(device, state, n_actions, steps_done, policy_net)
+        if train and not exploit:
+            action = select_action(state, n_actions, steps_done)
+        else:
+            action = policy_net(state).max(1)[1].view(1, 1)
 
         # Key movements of agent to be done
         K = action.item()
@@ -109,6 +161,7 @@ if __name__ == "__main__":
         if K == 3 and snake.head().direction != KEY["LEFT"]:
             snake.head().direction = KEY["RIGHT"]
 
+        # Human keys!
         # pressed = pyg.key.get_pressed()
         # if pressed[K_UP] and snake.head().direction != KEY["DOWN"]:
         #     snake.head().direction = KEY["UP"]
@@ -119,28 +172,32 @@ if __name__ == "__main__":
         # if pressed[K_RIGHT] and snake.head().direction != KEY["LEFT"]:
         #     snake.head().direction = KEY["RIGHT"]
 
-        # Check limits ! Border of screen
-        boundary_hit = False
-        if snake.head().x <= 0:
-            boundary_hit = True
-        if snake.head().x >= width:
-            boundary_hit = True
-        if snake.head().y <= 0:
-            boundary_hit = True
-        if snake.head().y >= height - 10:
-            boundary_hit = True
-        if boundary_hit:
-            score -= 200
-            stop_game = True
-
-        # Snake crash to its tail
-        if check_crash(snake):
-            score -= 100
-            apples = get_apples(width, height)
-            stop_game = True
+        # Move of snake...
+        snake.move()
 
         # Clean screen
         screen.fill(BLACK)
+
+        # Draw Border
+        for block in wall:
+            draw_object(screen, block.color, block.position)
+
+        # Snake crash to its tail
+        snake_collision = False
+        if check_crash(snake):
+            apples = get_apples(width, height)
+            snake_collision = True
+            stop_game = True
+
+        # Wall collision
+        # Check limits ! Border of screen
+        block_collision = False
+        for block in wall:
+            if check_collision(snake.head(), block):
+                stop_game = True
+                block_collision = True
+        # if block_collision:
+        #     score -= 200
 
         # Draw appples
         if len(apples) == 0:
@@ -149,7 +206,6 @@ if __name__ == "__main__":
             draw_object(screen, apple.color, apple.position)
 
         # Draw snake
-        snake.move()
         for segment in snake.stack:
             draw_object(screen, segment.color, (segment.x, segment.y) + segment.size)
 
@@ -157,39 +213,40 @@ if __name__ == "__main__":
         for i, apple in enumerate(apples):
             if check_collision(snake.head(), apple):
                 apples[i] = None
-                score += 5
+                score += APPLE_PRIZE
+                eating_time = time.time()
                 snake.grow()
         # Clear empty apples
         apples = list(filter(None.__ne__, apples))
 
         # Print on the screen the score and other info
         steps = f"{np.round(steps_done / 1000)}k" if steps_done > 1000 else steps_done
-        str_score = font.render(
-            f"score: {round(score)}, steps: {steps}, game: {n_game}", True, WHITE
-        )
-        screen.blit(str_score, (5, 5))
+        # str_score = font.render(
+        #     f"score: {np.round(score, 2)}, steps: {steps}, game: {n_game}", True, WHITE
+        # )
+        # screen.blit(str_score, (10, 10))
 
-        # Routines of pygame
-        clock.tick(FPS)
-        pyg.display.flip()
-        pyg.display.update()
-
-        # Add to score some minor points for being alive!
-        score += 1e-5
-        # Reward for the agent
-        reward = torch.tensor([score], device=device, dtype=torch.float)
         # Next state for the agent
         last_screen = current_screen
         current_screen = get_game_screen(screen, device)
-        next_state = current_screen - last_screen
-        # Store the transition in memory
-        memory.push(state, action, next_state, reward)
+        if not stop_game:
+            next_state = current_screen - last_screen
+            score -= np.round((time.time() - t_start_game) / APPLE_QTD, 3)
+        else:
+            next_state = None
+            score += np.sum([0.25 for segment in snake.stack]) - 0.75
+        score = 0 if score < 0 else score
+        if train:
+            # Reward for the agent
+            reward = torch.tensor([score], device=device, dtype=torch.float)
+            # Store the transition in memory
+            memory.push(state, action, next_state, reward)
         # Move to the next state
         state = next_state
 
         # ----------------------------------------
         # Perform one step of the optimization (on the target network)
-        if len(memory) >= BATCH_SIZE:
+        if len(memory) >= BATCH_SIZE and train:
             transitions = memory.sample(BATCH_SIZE)
             # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
             # detailed explanation). This converts batch-array of Transitions
@@ -243,12 +300,13 @@ if __name__ == "__main__":
         # One step done in the whole game...
         steps_done += 1
 
+        # Routines of pygame
+        clock.tick(FPS)
+        pyg.display.flip()
+        pyg.display.update()
+
         # Reload apples position after some time
         elapsed_time += time.time() - start
         if elapsed_time > APPLE_RELOAD_TIME:
             elapsed_time = 0
             apples = get_apples(width, height)
-
-        if steps_done % 5000 == 0:
-            torch.save(policy_net, "snakeplissken.dqn_policy_net.model")
-            # policy_net = torch.load("dqn_snakeplissken")

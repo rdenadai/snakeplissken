@@ -1,5 +1,13 @@
 import math
-from configs import SNAKE_SIZE, SNAKE_SPEED, SNAKE_SEPARATION, FPS, KEY, APPLE_SIZE
+from configs import (
+    SNAKE_SIZE,
+    SNAKE_SPEED,
+    SNAKE_SEPARATION,
+    FPS,
+    KEY,
+    APPLE_SIZE,
+    WALL_SIZE,
+)
 
 
 class Segment:
@@ -17,6 +25,14 @@ class Apple:
         self.y = y
         self.color = color
         self.position = (x, y, APPLE_SIZE, APPLE_SIZE)
+
+
+class Wall:
+    def __init__(self, x, y, color):
+        self.x = x
+        self.y = y
+        self.color = color
+        self.position = (x, y, WALL_SIZE, WALL_SIZE)
 
 
 class Snake:
