@@ -53,10 +53,12 @@ if __name__ == "__main__":
     n_actions = 4
     # number of steps done, each step is a run in while loop
     steps_done = 0
+    # game steps
+    game_steps = 0
     # the epoch we are running
     i_epoch = 0
     # number of games played
-    n_game = 0
+    n_game = 1
     # time between start and maximum time before reload some elements (in case apples)
     elapsed_time = 0
     # Action to be executed by the agent
@@ -116,12 +118,6 @@ if __name__ == "__main__":
             print(
                 f"Game end => score: {np.round(score, 5)}, steps: {steps}, game: {n_game}"
             )
-            stop_game = False
-            t_start_game = time.time()
-            # Zeroed elapsed time
-            elapsed_time = 0
-            # Number of games +1
-            n_game += 1
             # Update the target network, copying all weights and biases in DQN
             if i_epoch % TARGET_UPDATE == 0 and train:
                 print("Model saved...")
@@ -136,6 +132,13 @@ if __name__ == "__main__":
             current_screen = get_game_screen(screen, device)
             state = current_screen - last_screen
             # Restart game elements
+            t_start_game = time.time()
+            stop_game = False
+            # Zeroed elapsed time
+            elapsed_time = 0
+            # Number of games +1
+            n_game += 1
+            game_steps = 0
             score, wall, snake, apples = start_game(width, height)
 
             # if train and not exploit:
@@ -231,10 +234,11 @@ if __name__ == "__main__":
         current_screen = get_game_screen(screen, device)
         if not stop_game:
             next_state = current_screen - last_screen
-            score -= np.round((time.time() - t_start_game) / APPLE_QTD, 3)
+            score -= np.round((game_steps / 50) / (len(snake.stack) * APPLE_QTD), 3)
         else:
             next_state = None
-            score += np.sum([0.25 for segment in snake.stack]) - 0.75
+            score += np.sum([0.5 for segment in snake.stack]) - 1.5
+        score = np.round(score, 1)
         score = 0 if score < 0 else score
         if train:
             # Reward for the agent
@@ -299,6 +303,7 @@ if __name__ == "__main__":
 
         # One step done in the whole game...
         steps_done += 1
+        game_steps += 1
 
         # Routines of pygame
         clock.tick(FPS)

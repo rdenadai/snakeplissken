@@ -10,8 +10,8 @@ from objects.classes import Snake, Apple, Wall
 
 @jit(parallel=True, nopython=True)
 def random_position(x, y, width, height):
-    x = np.random.choice(np.arange((x * 2), width - (x * 2), 10))
-    y = np.random.choice(np.arange((y * 2), height - (y * 2), 10))
+    x = np.random.choice(np.arange(x, width - x, 10))
+    y = np.random.choice(np.arange(y, height - y, 10))
     return x, y
 
 
@@ -36,10 +36,11 @@ def check_crash(snake):
     return False
 
 
-def get_game_screen(screen, device):
+def get_game_screen(x, y, screen, device):
     resize = T.Compose(
         [T.ToPILImage(), T.Resize(60, interpolation=Image.BILINEAR), T.ToTensor()]
     )
+
     screen = np.rot90(pygame.surfarray.array3d(screen))[::-1].transpose((2, 0, 1))
     screen = np.ascontiguousarray(screen, dtype=np.float32)
     screen = torch.from_numpy(screen)
