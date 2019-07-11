@@ -63,10 +63,8 @@ if __name__ == "__main__":
     elapsed_time = 0
     # Action to be executed by the agent
     action = None
-    # Load policy file
-    load_models = True
     # Train phase
-    train = True
+    train = False
     exploit = True
 
     # Screen size
@@ -78,20 +76,23 @@ if __name__ == "__main__":
     pyg.display.set_caption("Snake Plissken")
 
     # print(get_game_screen(screen, device).shape)
+
     # DQN Algoritm
-    if load_models:
-        policy_net = torch.load("snakeplissken.dqn_policy_net.model")
-        target_net = torch.load("snakeplissken.dqn_target_net.model")
-    else:
-        policy_net = DQN(60, 60, n_actions).to(device)
-        target_net = DQN(60, 60, n_actions).to(device)
+    policy_net = DQN(IMG_SIZE, IMG_SIZE, n_actions).to(device)
+    target_net = DQN(IMG_SIZE, IMG_SIZE, n_actions).to(device)
+    # Optimizer
+    # optimizer = optim.RMSprop(policy_net.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM)
+    optimizer = optim.Adam(policy_net.parameters(), lr=LEARNING_RATE)
+    try:
+        checkpoint = torch.load("snakeplissken.model")
+        policy_net.load_state_dict(checkpoint["dqn"])
+        target_net.load_state_dict(checkpoint["target"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+    except:
+        pass
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
-    # Optimizer
-    optimizer = optim.RMSprop(
-        policy_net.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM
-    )
-    # optimizer = optim.Adam(policy_net.parameters(), lr=LEARNING_RATE)
+
     # Memory
     memory = ReplayMemory(MEM_LENGTH)
 
@@ -101,7 +102,9 @@ if __name__ == "__main__":
     state = current_screen - last_screen
 
     # Game elements started
-    score, wall, snake, apples = start_game(width, height)
+    t_score, score = 0, 0
+    wall = get_walls(width, height)
+    snake, apples = start_game(width, height)
 
     t_start_game = time.time()
     eating_time = time.time()
@@ -116,13 +119,19 @@ if __name__ == "__main__":
         # Stop the game, and restart
         if stop_game:
             print(
-                f"Game end => score: {np.round(score, 5)}, steps: {steps}, game: {n_game}"
+                f"Game end => score: {np.round(t_score, 5)}, steps: {steps}, game: {n_game}"
             )
             # Update the target network, copying all weights and biases in DQN
             if i_epoch % TARGET_UPDATE == 0 and train:
                 print("Model saved...")
-                torch.save(policy_net, "snakeplissken.dqn_policy_net.model")
-                torch.save(target_net, "snakeplissken.dqn_target_net.model")
+                torch.save(
+                    {
+                        "dqn": policy_net.state_dict(),
+                        "target": target_net.state_dict(),
+                        "optimizer": optimizer.state_dict(),
+                    },
+                    "snakeplissken.model",
+                )
                 print(f"Running for: {np.round(time.time() - t_start_game, 2)} secs")
                 print("Update target network...")
                 target_net.load_state_dict(policy_net.state_dict())
@@ -139,13 +148,13 @@ if __name__ == "__main__":
             # Number of games +1
             n_game += 1
             game_steps = 0
-            score, wall, snake, apples = start_game(width, height)
+            t_score, score = 0, 0
+            snake, apples = start_game(width, height)
 
-            # if train and not exploit:
-            #     num = int(np.random.uniform(0, 5))
-            #     for i in range(0, num):
-            #         snake.grow()
-            #         score += APPLE_PRIZE
+            if train and not exploit:
+                n = np.random.randint(1, 3)
+                for i in range(n):
+                    snake.grow()
 
         # Action and reward of the agent
         if train and not exploit:
@@ -188,19 +197,16 @@ if __name__ == "__main__":
         # Snake crash to its tail
         snake_collision = False
         if check_crash(snake):
-            apples = get_apples(width, height)
+            score = -1
             snake_collision = True
             stop_game = True
 
         # Wall collision
         # Check limits ! Border of screen
-        block_collision = False
         for block in wall:
             if check_collision(snake.head(), block):
+                score = -2
                 stop_game = True
-                block_collision = True
-        # if block_collision:
-        #     score -= 200
 
         # Draw appples
         if len(apples) == 0:
@@ -213,14 +219,14 @@ if __name__ == "__main__":
             draw_object(screen, segment.color, (segment.x, segment.y) + segment.size)
 
         # Check collision between snake and apple
+        apple_collision_idx = []
         for i, apple in enumerate(apples):
             if check_collision(snake.head(), apple):
-                apples[i] = None
-                score += APPLE_PRIZE
+                apple_collision_idx.append(i)
+                score = 1
+                t_score += score
                 eating_time = time.time()
                 snake.grow()
-        # Clear empty apples
-        apples = list(filter(None.__ne__, apples))
 
         # Print on the screen the score and other info
         steps = f"{np.round(steps_done / 1000)}k" if steps_done > 1000 else steps_done
@@ -234,17 +240,21 @@ if __name__ == "__main__":
         current_screen = get_game_screen(screen, device)
         if not stop_game:
             next_state = current_screen - last_screen
-            score -= np.round((game_steps / 50) / (len(snake.stack) * APPLE_QTD), 3)
         else:
             next_state = None
-            score += np.sum([0.5 for segment in snake.stack]) - 1.5
-        score = np.round(score, 1)
-        score = 0 if score < 0 else score
+
+        # Clear empty apples
+        for i in apple_collision_idx:
+            apples[i] = None
+        apples = list(filter(None.__ne__, apples))
+
         if train:
             # Reward for the agent
             reward = torch.tensor([score], device=device, dtype=torch.float)
             # Store the transition in memory
             memory.push(state, action, next_state, reward)
+
+        score = 0
         # Move to the next state
         state = next_state
 

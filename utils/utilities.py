@@ -38,11 +38,11 @@ def check_crash(snake):
 
 def get_game_screen(screen, device):
     resize = T.Compose(
-        [T.ToPILImage(), T.Resize(60, interpolation=Image.BILINEAR), T.ToTensor()]
+        [T.ToPILImage(), T.Resize(IMG_SIZE, interpolation=Image.BILINEAR), T.ToTensor()]
     )
 
     screen = np.rot90(pygame.surfarray.array3d(screen))[::-1].transpose((2, 0, 1))
-    screen = np.ascontiguousarray(screen, dtype=np.float32)
+    screen = np.ascontiguousarray(screen, dtype=np.float32) / 255.0
     screen = torch.from_numpy(screen)
     return resize(screen).unsqueeze(0).to(device)
 
@@ -61,18 +61,21 @@ def get_apples(width, height):
     return [reload_apple(width, height) for _ in range(APPLE_QTD)]
 
 
-def start_game(width, height):
-    score = 0
-    # Borders
+def get_walls(width, height):
+    x, y = 0, 0
     wall = (
         [Wall(x, 0, GRAY) for x in np.arange(0, width, 10)]
         + [Wall(x, height - 10, GRAY) for x in np.arange(0, width, 10)]
         + [Wall(0, y, GRAY) for y in np.arange(0, height, 10)]
         + [Wall(width - 10, y, GRAY) for y in np.arange(0, height, 10)]
     )
+    return wall
+
+
+def start_game(width, height):
     # Create the player
     x, y = random_position(20, 20, width, height)
     snake = Snake(x, y, GREEN, WHITE)
     # Start food?
     apples = get_apples(width, height)
-    return score, wall, snake, apples
+    return snake, apples
