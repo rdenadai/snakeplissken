@@ -36,25 +36,19 @@ class ReplayMemory(object):
 class DQN(nn.Module):
     def __init__(self, h, w, outputs):
         super(DQN, self).__init__()
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=6, stride=2, padding=0)
-        self.bn1 = nn.BatchNorm2d(32)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=6, stride=2, padding=0)
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=2)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.conv2 = nn.Conv2d(64, 64, kernel_size=3, stride=2)
         self.bn2 = nn.BatchNorm2d(64)
-        self.conv3 = nn.Conv2d(64, 64, kernel_size=6, stride=2, padding=0)
-        self.bn3 = nn.BatchNorm2d(64)
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=2)
+        self.bn3 = nn.BatchNorm2d(128)
+        self.conv4 = nn.Conv2d(128, 128, kernel_size=3, stride=2)
+        self.bn4 = nn.BatchNorm2d(128)
 
-        # Number of Linear input connections depends on output of conv2d layers
-        # and therefore the input image size, so compute it.
-        def conv2d_size_out(size, kernel_size=6, stride=2):
-            return (size - (kernel_size - 1) - 1) // stride + 1
-
-        convw = conv2d_size_out(conv2d_size_out(conv2d_size_out(w)))
-        convh = conv2d_size_out(conv2d_size_out(conv2d_size_out(h)))
-        linear_input_size = convw * convh * 64
-        self.fc0 = nn.Linear(linear_input_size, 1024)
-        self.fc1 = nn.Linear(1024, 512)
-        self.dp = nn.Dropout()
-        self.head = nn.Linear(512, outputs)
+        self.fc0 = nn.Linear(2048, 1024, bias=1024)
+        self.fc1 = nn.Linear(1024, 1024, bias=1024)
+        self.dp = nn.Dropout(p=0.5)
+        self.head = nn.Linear(1024, outputs, bias=outputs)
 
     # Called with either one element to determine next action, or a batch
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
@@ -62,6 +56,7 @@ class DQN(nn.Module):
         x = F.leaky_relu(self.bn1(self.conv1(x)))
         x = F.leaky_relu(self.bn2(self.conv2(x)))
         x = F.leaky_relu(self.bn3(self.conv3(x)))
+        x = F.leaky_relu(self.bn4(self.conv4(x)))
         x = F.leaky_relu(self.fc0(x.view(x.size(0), -1)))
         x = F.leaky_relu(self.fc1(x))
         x = self.dp(x)

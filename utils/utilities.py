@@ -17,10 +17,10 @@ def random_position(x, y, width, height):
 
 def check_collision(objA, objB, objA_size=SNAKE_SIZE, objB_size=APPLE_SIZE):
     if (
-        objA.x < objB.x + objB_size
-        and objA.x + objA_size > objB.x
-        and objA.y < objB.y + objB_size
-        and objA.y + objA_size > objB.y
+        objA.x <= objB.x + objB_size
+        and objA.x + objA_size >= objB.x
+        and objA.y <= objB.y + objB_size
+        and objA.y + objA_size >= objB.y
     ):
         return True
     return False
@@ -41,15 +41,15 @@ def get_game_screen(screen, device):
         [T.ToPILImage(), T.Resize(IMG_SIZE, interpolation=Image.BILINEAR), T.ToTensor()]
     )
 
-    screen = np.rot90(pygame.surfarray.array3d(screen))[::-1].transpose((2, 0, 1))
-    screen = np.ascontiguousarray(screen, dtype=np.float32) / 255.0
-    screen = torch.from_numpy(screen)
-    return resize(screen).unsqueeze(0).to(device)
+    screen = np.rot90(pygame.surfarray.array3d(screen))[::-1]
+    # screen = np.ascontiguousarray(screen, dtype=np.float32) / 255.0
+    # screen = torch.from_numpy(screen.transpose((2, 0, 1)))
+    screen = resize(screen) / 255.0
+    return screen.unsqueeze(0).to(device)
 
 
 def save_game_screen(fname, img):
-    im = Image.fromarray(img)
-    im.save(fname)
+    Image.fromarray(img).save(fname)
 
 
 def reload_apple(width, height):

@@ -64,7 +64,7 @@ if __name__ == "__main__":
     # Action to be executed by the agent
     action = None
     # Train phase
-    train = False
+    train = True
     exploit = True
 
     # Screen size
@@ -81,7 +81,9 @@ if __name__ == "__main__":
     policy_net = DQN(IMG_SIZE, IMG_SIZE, n_actions).to(device)
     target_net = DQN(IMG_SIZE, IMG_SIZE, n_actions).to(device)
     # Optimizer
-    # optimizer = optim.RMSprop(policy_net.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM)
+    # optimizer = optim.RMSprop(
+    #     policy_net.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM
+    # )
     optimizer = optim.Adam(policy_net.parameters(), lr=LEARNING_RATE)
     try:
         checkpoint = torch.load("snakeplissken.model")
@@ -89,9 +91,14 @@ if __name__ == "__main__":
         target_net.load_state_dict(checkpoint["target"])
         optimizer.load_state_dict(checkpoint["optimizer"])
     except:
-        pass
+        print("Models loaded!")
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
+
+    # Reduce learning rate when a metric has stopped improving.
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, "min", patience=4, min_lr=1e-6
+    )
 
     # Memory
     memory = ReplayMemory(MEM_LENGTH)
@@ -118,6 +125,7 @@ if __name__ == "__main__":
 
         # Stop the game, and restart
         if stop_game:
+            print("-" * 20)
             print(
                 f"Game end => score: {np.round(t_score, 5)}, steps: {steps}, game: {n_game}"
             )
@@ -135,6 +143,8 @@ if __name__ == "__main__":
                 print(f"Running for: {np.round(time.time() - t_start_game, 2)} secs")
                 print("Update target network...")
                 target_net.load_state_dict(policy_net.state_dict())
+                for param_group in optimizer.param_groups:
+                    print(f"learning rate={param_group['lr']}")
             i_epoch += 1
             # Load again the new screen: Initial State
             last_screen = get_game_screen(screen, device)
@@ -151,37 +161,38 @@ if __name__ == "__main__":
             t_score, score = 0, 0
             snake, apples = start_game(width, height)
 
-            if train and not exploit:
-                n = np.random.randint(1, 3)
-                for i in range(n):
-                    snake.grow()
+            # if train and not exploit:
+            #     n = np.random.randint(0, 2)
+            #     for i in range(n):
+            #         snake.grow()
 
         # Action and reward of the agent
         if train and not exploit:
             action = select_action(state, n_actions, steps_done)
         else:
-            action = policy_net(state).max(1)[1].view(1, 1)
+            with torch.no_grad():
+                action = policy_net(state).max(1)[1].view(1, 1)
 
         # Key movements of agent to be done
         K = action.item()
         if K == 0 and snake.head().direction != KEY["DOWN"]:
             snake.head().direction = KEY["UP"]
-        if K == 1 and snake.head().direction != KEY["UP"]:
+        elif K == 1 and snake.head().direction != KEY["UP"]:
             snake.head().direction = KEY["DOWN"]
-        if K == 2 and snake.head().direction != KEY["RIGHT"]:
+        elif K == 2 and snake.head().direction != KEY["RIGHT"]:
             snake.head().direction = KEY["LEFT"]
-        if K == 3 and snake.head().direction != KEY["LEFT"]:
+        elif K == 3 and snake.head().direction != KEY["LEFT"]:
             snake.head().direction = KEY["RIGHT"]
 
         # Human keys!
         # pressed = pyg.key.get_pressed()
         # if pressed[K_UP] and snake.head().direction != KEY["DOWN"]:
         #     snake.head().direction = KEY["UP"]
-        # if pressed[K_DOWN] and snake.head().direction != KEY["UP"]:
+        # elif pressed[K_DOWN] and snake.head().direction != KEY["UP"]:
         #     snake.head().direction = KEY["DOWN"]
-        # if pressed[K_LEFT] and snake.head().direction != KEY["RIGHT"]:
+        # elif pressed[K_LEFT] and snake.head().direction != KEY["RIGHT"]:
         #     snake.head().direction = KEY["LEFT"]
-        # if pressed[K_RIGHT] and snake.head().direction != KEY["LEFT"]:
+        # elif pressed[K_RIGHT] and snake.head().direction != KEY["LEFT"]:
         #     snake.head().direction = KEY["RIGHT"]
 
         # Move of snake...
@@ -195,17 +206,15 @@ if __name__ == "__main__":
             draw_object(screen, block.color, block.position)
 
         # Snake crash to its tail
-        snake_collision = False
         if check_crash(snake):
-            score = -1
-            snake_collision = True
+            score = -0.5
             stop_game = True
 
         # Wall collision
         # Check limits ! Border of screen
         for block in wall:
             if check_collision(snake.head(), block):
-                score = -2
+                score = -1.0
                 stop_game = True
 
         # Draw appples
@@ -215,7 +224,7 @@ if __name__ == "__main__":
             draw_object(screen, apple.color, apple.position)
 
         # Draw snake
-        for segment in snake.stack:
+        for segment in reversed(snake.stack):
             draw_object(screen, segment.color, (segment.x, segment.y) + segment.size)
 
         # Check collision between snake and apple
@@ -223,7 +232,7 @@ if __name__ == "__main__":
         for i, apple in enumerate(apples):
             if check_collision(snake.head(), apple):
                 apple_collision_idx.append(i)
-                score = 1
+                score = 1.0
                 t_score += score
                 eating_time = time.time()
                 snake.grow()
@@ -240,6 +249,8 @@ if __name__ == "__main__":
         current_screen = get_game_screen(screen, device)
         if not stop_game:
             next_state = current_screen - last_screen
+            # Give some points because it alive
+            score = -5e-2
         else:
             next_state = None
 
@@ -261,54 +272,66 @@ if __name__ == "__main__":
         # ----------------------------------------
         # Perform one step of the optimization (on the target network)
         if len(memory) >= BATCH_SIZE and train:
-            transitions = memory.sample(BATCH_SIZE)
-            # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
-            # detailed explanation). This converts batch-array of Transitions
-            # to Transition of batch-arrays.
-            batch = Transition(*zip(*transitions))
+            loss = None
+            j = np.min([3, int(np.ceil(len(memory) / 100))])
+            for _ in range(j):
+                transitions = memory.sample(BATCH_SIZE)
+                # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
+                # detailed explanation). This converts batch-array of Transitions
+                # to Transition of batch-arrays.
+                batch = Transition(*zip(*transitions))
 
-            # Compute a mask of non-final states and concatenate the batch elements
-            # (a final state would've been the one after which simulation ended)
-            non_final_mask = torch.tensor(
-                tuple(map(lambda s: s is not None, batch.next_state)),
-                device=device,
-                dtype=torch.uint8,
-            )
-            non_final_next_states = torch.cat(
-                [s for s in batch.next_state if s is not None]
-            )
-            state_batch = torch.cat(batch.state)
-            action_batch = torch.cat(batch.action)
-            reward_batch = torch.cat(batch.reward)
+                # Compute a mask of non-final states and concatenate the batch elements
+                # (a final state would've been the one after which simulation ended)
+                non_final_mask = torch.tensor(
+                    tuple(map(lambda s: s is not None, batch.next_state)),
+                    device=device,
+                    dtype=torch.uint8,
+                )
+                non_final_next_states = torch.cat(
+                    [s for s in batch.next_state if s is not None]
+                )
+                state_batch = torch.cat(batch.state)
+                action_batch = torch.cat(batch.action)
+                reward_batch = torch.cat(batch.reward)
 
-            # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
-            # columns of actions taken. These are the actions which would've been taken
-            # for each batch state according to policy_net
-            state_action_values = policy_net(state_batch).gather(1, action_batch)
+                # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
+                # columns of actions taken. These are the actions which would've been taken
+                # for each batch state according to policy_net
+                state_action_values = policy_net(state_batch).gather(1, action_batch)
 
-            # Compute V(s_{t+1}) for all next states.
-            # Expected values of actions for non_final_next_states are computed based
-            # on the "older" target_net; selecting their best reward with max(1)[0].
-            # This is merged based on the mask, such that we'll have either the expected
-            # state value or 0 in case the state was final.
-            next_state_values = torch.zeros(BATCH_SIZE, device=device)
-            next_state_values[non_final_mask] = (
-                target_net(non_final_next_states).max(1)[0].detach()
-            )
-            # Compute the expected Q values
-            expected_state_action_values = (next_state_values * GAMMA) + reward_batch
+                # Compute V(s_{t+1}) for all next states.
+                # Expected values of actions for non_final_next_states are computed based
+                # on the "older" target_net; selecting their best reward with max(1)[0].
+                # This is merged based on the mask, such that we'll have either the expected
+                # state value or 0 in case the state was final.
+                next_state_values = torch.zeros(BATCH_SIZE, device=device)
+                next_state_values[non_final_mask] = (
+                    target_net(non_final_next_states).max(1)[0].detach()
+                )
+                # Compute the expected Q values
+                expected_state_action_values = (
+                    next_state_values * GAMMA
+                ) + reward_batch
 
-            # Compute Huber loss
-            loss = F.smooth_l1_loss(
-                state_action_values, expected_state_action_values.unsqueeze(1)
-            )
+                # Compute Huber loss
+                loss = F.smooth_l1_loss(
+                    state_action_values, expected_state_action_values.unsqueeze(1)
+                )
+                # loss = F.mse_loss(
+                #     state_action_values, expected_state_action_values.unsqueeze(1)
+                # )
 
-            # Optimize the model
-            optimizer.zero_grad()
-            loss.backward()
-            for param in policy_net.parameters():
-                param.grad.data.clamp_(-1, 1)
-            optimizer.step()
+                # Optimize the model
+                optimizer.zero_grad()
+                loss.backward()
+                for param in policy_net.parameters():
+                    param.grad.data.clamp_(-1, 1)
+                optimizer.step()
+
+            if steps_done % (TARGET_UPDATE * 10) == 0:
+                # Reduce learning rate if necessary
+                scheduler.step(loss)
         # ----------------------------------------
 
         # One step done in the whole game...
