@@ -10,7 +10,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from configs import *
 from utils.utilities import *
-from ai.model import DQN, ReplayMemory, Transition
+from ai.model import ReplayMemory, Transition
 
 
 def draw_object(scr, color, position):
@@ -64,8 +64,7 @@ if __name__ == "__main__":
     # Action to be executed by the agent
     action = None
     # Train phase
-    train = True
-    exploit = True
+    train, exploit = True, False
 
     # Screen size
     size = width, height = W_WIDTH, W_HEIGHT
@@ -77,44 +76,27 @@ if __name__ == "__main__":
 
     # print(get_game_screen(screen, device).shape)
 
-    # DQN Algoritm
-    policy_net = DQN(IMG_SIZE, IMG_SIZE, n_actions).to(device)
-    target_net = DQN(IMG_SIZE, IMG_SIZE, n_actions).to(device)
-    # Optimizer
-    # optimizer = optim.RMSprop(
-    #     policy_net.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM
-    # )
-    optimizer = optim.Adam(policy_net.parameters(), lr=LEARNING_RATE)
-    try:
-        checkpoint = torch.load("snakeplissken.model")
-        policy_net.load_state_dict(checkpoint["dqn"])
-        target_net.load_state_dict(checkpoint["target"])
-        optimizer.load_state_dict(checkpoint["optimizer"])
-    except:
-        print("Models loaded!")
+    # Load model
+    md_name = "snakeplissken.model"
+    policy_net, target_net, optimizer = load_model(md_name, n_actions, device)
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
 
     # Reduce learning rate when a metric has stopped improving.
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, "min", patience=4, min_lr=1e-6
+        optimizer, "min", patience=10, min_lr=1e-5
     )
 
     # Memory
     memory = ReplayMemory(MEM_LENGTH)
-
-    # Load image screen data as torch Tensor : Initial State
-    last_screen = get_game_screen(screen, device)
-    current_screen = get_game_screen(screen, device)
-    state = current_screen - last_screen
 
     # Game elements started
     t_score, score = 0, 0
     wall = get_walls(width, height)
     snake, apples = start_game(width, height)
 
+    state, next_state = None, None
     t_start_game = time.time()
-    eating_time = time.time()
 
     # Game Main loop
     while True:
@@ -131,26 +113,15 @@ if __name__ == "__main__":
             )
             # Update the target network, copying all weights and biases in DQN
             if i_epoch % TARGET_UPDATE == 0 and train:
-                print("Model saved...")
-                torch.save(
-                    {
-                        "dqn": policy_net.state_dict(),
-                        "target": target_net.state_dict(),
-                        "optimizer": optimizer.state_dict(),
-                    },
-                    "snakeplissken.model",
-                )
+                save_model(md_name, policy_net, target_net, optimizer)
                 print(f"Running for: {np.round(time.time() - t_start_game, 2)} secs")
                 print("Update target network...")
                 target_net.load_state_dict(policy_net.state_dict())
                 for param_group in optimizer.param_groups:
                     print(f"learning rate={param_group['lr']}")
             i_epoch += 1
-            # Load again the new screen: Initial State
-            last_screen = get_game_screen(screen, device)
-            current_screen = get_game_screen(screen, device)
-            state = current_screen - last_screen
             # Restart game elements
+            state, next_state = None, None
             t_start_game = time.time()
             stop_game = False
             # Zeroed elapsed time
@@ -165,6 +136,10 @@ if __name__ == "__main__":
             #     n = np.random.randint(0, 2)
             #     for i in range(n):
             #         snake.grow()
+
+        # Load again the new screen: Initial State
+        if state is None:
+            state = get_game_screen(screen, device)
 
         # Action and reward of the agent
         if train and not exploit:
@@ -198,24 +173,39 @@ if __name__ == "__main__":
         # Move of snake...
         snake.move()
 
-        # Clean screen
-        screen.fill(BLACK)
-
-        # Draw Border
-        for block in wall:
-            draw_object(screen, block.color, block.position)
-
         # Snake crash to its tail
         if check_crash(snake):
-            score = -0.5
+            # score = -1.0
             stop_game = True
 
         # Wall collision
         # Check limits ! Border of screen
         for block in wall:
             if check_collision(snake.head(), block):
-                score = -1.0
+                # score = -1.0
                 stop_game = True
+                break
+
+        # Check collision between snake and apple
+        del_apples = []
+        for i, apple in enumerate(apples):
+            if check_collision(snake.head(), apple):
+                del_apples.append(i)
+                score = APPLE_PRIZE
+                t_score += APPLE_PRIZE
+                snake.grow()
+                break
+
+        # Clean screen
+        screen.fill(BLACK)
+
+        # Draw snake
+        for segment in reversed(snake.stack):
+            draw_object(screen, segment.color, (segment.x, segment.y) + segment.size)
+
+        # Draw Border
+        for block in wall:
+            draw_object(screen, block.color, block.position)
 
         # Draw appples
         if len(apples) == 0:
@@ -223,19 +213,9 @@ if __name__ == "__main__":
         for apple in apples:
             draw_object(screen, apple.color, apple.position)
 
-        # Draw snake
-        for segment in reversed(snake.stack):
-            draw_object(screen, segment.color, (segment.x, segment.y) + segment.size)
-
-        # Check collision between snake and apple
-        apple_collision_idx = []
-        for i, apple in enumerate(apples):
-            if check_collision(snake.head(), apple):
-                apple_collision_idx.append(i)
-                score = 1.0
-                t_score += score
-                eating_time = time.time()
-                snake.grow()
+        for i in del_apples:
+            apples[i] = None
+        apples = list(filter(None.__ne__, apples))
 
         # Print on the screen the score and other info
         steps = f"{np.round(steps_done / 1000)}k" if steps_done > 1000 else steps_done
@@ -245,35 +225,34 @@ if __name__ == "__main__":
         # screen.blit(str_score, (10, 10))
 
         # Next state for the agent
-        last_screen = current_screen
-        current_screen = get_game_screen(screen, device)
+        next_state = get_game_screen(screen, device)
+        # Give some points because it alive
         if not stop_game:
-            next_state = current_screen - last_screen
-            # Give some points because it alive
-            score = -5e-2
+            score = 5e-3 if score == 0 else score
         else:
             next_state = None
 
-        # Clear empty apples
-        for i in apple_collision_idx:
-            apples[i] = None
-        apples = list(filter(None.__ne__, apples))
+        # if score == 1:
+        #     save_game_screen("state.jpg", state)
+        #     save_game_screen("next_state.jpg", next_state)
+        #     print(score)
+        #     break
 
         if train:
             # Reward for the agent
             reward = torch.tensor([score], device=device, dtype=torch.float)
             # Store the transition in memory
             memory.push(state, action, next_state, reward)
-
         score = 0
         # Move to the next state
         state = next_state
 
         # ----------------------------------------
         # Perform one step of the optimization (on the target network)
-        if len(memory) >= BATCH_SIZE and train:
+        if train and len(memory) % BATCH_SIZE == 0:
             loss = None
-            j = np.min([3, int(np.ceil(len(memory) / 100))])
+            # Run a bunch of batchs. Max = 10
+            j = np.min([5, int(np.ceil(len(memory) / 100))])
             for _ in range(j):
                 transitions = memory.sample(BATCH_SIZE)
                 # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
@@ -315,12 +294,12 @@ if __name__ == "__main__":
                 ) + reward_batch
 
                 # Compute Huber loss
-                loss = F.smooth_l1_loss(
-                    state_action_values, expected_state_action_values.unsqueeze(1)
-                )
-                # loss = F.mse_loss(
+                # loss = F.smooth_l1_loss(
                 #     state_action_values, expected_state_action_values.unsqueeze(1)
                 # )
+                loss = F.mse_loss(
+                    state_action_values, expected_state_action_values.unsqueeze(1)
+                )
 
                 # Optimize the model
                 optimizer.zero_grad()

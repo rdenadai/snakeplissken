@@ -4,8 +4,11 @@ import pygame
 from PIL import Image
 import torch
 import torchvision.transforms as T
+from torchvision.utils import save_image
+import torch.optim as optim
 from configs import *
 from objects.classes import Snake, Apple, Wall
+from ai.model import DQN
 
 
 @jit(parallel=True, nopython=True)
@@ -38,18 +41,19 @@ def check_crash(snake):
 
 def get_game_screen(screen, device):
     resize = T.Compose(
-        [T.ToPILImage(), T.Resize(IMG_SIZE, interpolation=Image.BILINEAR), T.ToTensor()]
+        [T.ToPILImage(), T.Resize(IMG_SIZE, interpolation=Image.CUBIC), T.ToTensor()]
     )
-
-    screen = np.rot90(pygame.surfarray.array3d(screen))[::-1]
-    # screen = np.ascontiguousarray(screen, dtype=np.float32) / 255.0
-    # screen = torch.from_numpy(screen.transpose((2, 0, 1)))
-    screen = resize(screen) / 255.0
-    return screen.unsqueeze(0).to(device)
+    screen = np.rot90(pygame.surfarray.array3d(screen))[::-1].transpose(2, 0, 1)
+    screen = np.ascontiguousarray(screen, dtype=np.float32) / 255.0
+    screen = torch.from_numpy(screen)
+    return resize(screen).unsqueeze(0).to(device)
 
 
 def save_game_screen(fname, img):
-    Image.fromarray(img).save(fname)
+    if isinstance(img, torch.Tensor):
+        save_image(img.cpu().squeeze(0), fname)
+    else:
+        Image.fromarray(img).save(fname)
 
 
 def reload_apple(width, height):
@@ -79,3 +83,37 @@ def start_game(width, height):
     # Start food?
     apples = get_apples(width, height)
     return snake, apples
+
+
+def save_model(name, policy_net, target_net, optimizer):
+    print("Model saved...")
+    torch.save(
+        {
+            "dqn": policy_net.state_dict(),
+            "target": target_net.state_dict(),
+            "optimizer": optimizer.state_dict(),
+        },
+        name,
+    )
+
+
+def load_model(md_name, n_actions, device, opt="adam"):
+    # DQN Algoritm
+    policy_net = DQN(n_actions).to(device)
+    target_net = DQN(n_actions).to(device)
+    # Optimizer
+    if "adam" in opt:
+        optimizer = optim.Adam(policy_net.parameters(), lr=LEARNING_RATE)
+    else:
+        optimizer = optim.RMSprop(
+            policy_net.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM
+        )
+
+    try:
+        checkpoint = torch.load(md_name)
+        policy_net.load_state_dict(checkpoint["dqn"])
+        target_net.load_state_dict(checkpoint["target"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+    except:
+        print("Models loaded!")
+    return policy_net, target_net, optimizer
