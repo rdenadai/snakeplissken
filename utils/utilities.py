@@ -1,3 +1,4 @@
+import pickle
 import numpy as np
 from numba import jit
 import pygame
@@ -8,7 +9,7 @@ from torchvision.utils import save_image
 import torch.optim as optim
 from configs import *
 from objects.classes import Snake, Apple, Wall
-from ai.model import DQN
+from ai.model import DQN, ReplayMemory
 
 
 @jit(parallel=True, nopython=True)
@@ -85,13 +86,14 @@ def start_game(width, height):
     return snake, apples
 
 
-def save_model(name, policy_net, target_net, optimizer):
+def save_model(name, policy_net, target_net, optimizer, memories):
     print("Model saved...")
     torch.save(
         {
             "dqn": policy_net.state_dict(),
             "target": target_net.state_dict(),
             "optimizer": optimizer.state_dict(),
+            "memories": memories,
         },
         name,
     )
@@ -109,11 +111,19 @@ def load_model(md_name, n_actions, device, opt="adam"):
             policy_net.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM
         )
 
+    memories = {
+        "short": ReplayMemory(MEM_LENGTH * 5),
+        "good": ReplayMemory(MEM_LENGTH),
+        "bad": ReplayMemory(MEM_LENGTH),
+    }
+
     try:
         checkpoint = torch.load(md_name)
         policy_net.load_state_dict(checkpoint["dqn"])
         target_net.load_state_dict(checkpoint["target"])
         optimizer.load_state_dict(checkpoint["optimizer"])
-    except:
+        # memories = checkpoint["memories"]
         print("Models loaded!")
-    return policy_net, target_net, optimizer
+    except:
+        print("Couldn't load Models!")
+    return policy_net, target_net, optimizer, memories

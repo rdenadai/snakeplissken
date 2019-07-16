@@ -27,7 +27,9 @@ class ReplayMemory:
         self.position = (self.position + 1) % self.capacity
 
     def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
+        size = len(self.memory)
+        size = batch_size if size > batch_size else size
+        return random.sample(self.memory, size)
 
     def __len__(self):
         return len(self.memory)
