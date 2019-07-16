@@ -256,14 +256,14 @@ if __name__ == "__main__":
         #     break
 
         if train:
+            reward = torch.tensor([score], device=device, dtype=torch.float)
             # Reward for the agent
             if not stop_game and score == 0:
                 if steps_done % BATCH_SIZE == 0:
-                    reward = torch.tensor([score], device=device, dtype=torch.float)
+                    memory.push(state, action, next_state, reward)
             else:
-                reward = torch.tensor([score], device=device, dtype=torch.float)
+                memory.push(state, action, next_state, reward)
             # Store the transition in memory
-            memory.push(state, action, next_state, reward)
         score = 0
         # Move to the next state
         state = next_state
