@@ -41,11 +41,11 @@ def check_crash(snake):
 
 def get_game_screen(screen, device):
     resize = T.Compose(
-        [T.ToPILImage(), T.Resize(IMG_SIZE, interpolation=Image.CUBIC), T.ToTensor()]
+        [T.ToPILImage(), T.Resize(IMG_SIZE, interpolation=Image.NEAREST), T.ToTensor()]
     )
-    screen = np.rot90(pygame.surfarray.array3d(screen))[::-1].transpose(2, 0, 1)
-    screen = np.ascontiguousarray(screen, dtype=np.float32) / 255.0
-    screen = torch.from_numpy(screen)
+    screen = np.rot90(pygame.surfarray.array3d(screen))[::-1]  # .transpose(2, 0, 1)
+    # screen = np.ascontiguousarray(screen, dtype=np.float32) / 255.0
+    # screen = torch.from_numpy(screen)
     return resize(screen).unsqueeze(0).to(device)
 
 

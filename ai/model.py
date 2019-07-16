@@ -13,7 +13,7 @@ from configs import *
 Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"))
 
 
-class ReplayMemory(object):
+class ReplayMemory:
     def __init__(self, capacity):
         self.capacity = capacity
         self.memory = []
@@ -43,10 +43,10 @@ class DQN(nn.Module):
         self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
         self.bn3 = nn.BatchNorm2d(64)
 
-        self.fc_adv1 = nn.Linear(1024, 512)
+        self.fc_adv1 = nn.Linear(5184, 512)
         self.fc_adv2 = nn.Linear(512, outputs)
 
-        self.fc_val1 = nn.Linear(1024, 512)
+        self.fc_val1 = nn.Linear(5184, 512)
         self.fc_val2 = nn.Linear(512, 1)
 
     # Called with either one element to determine next action, or a batch

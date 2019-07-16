@@ -50,7 +50,7 @@ if __name__ == "__main__":
     clock = pyg.time.Clock()
     font = pyg.font.Font(None, 20)
     # number o actions the agent can do
-    n_actions = 4
+    n_actions = 3
     # number of steps done, each step is a run in while loop
     steps_done = 0
     # game steps
@@ -64,7 +64,7 @@ if __name__ == "__main__":
     # Action to be executed by the agent
     action = None
     # Train phase
-    train, exploit = True, False
+    train, exploit = True, True
 
     # Screen size
     size = width, height = W_WIDTH, W_HEIGHT
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     # print(get_game_screen(screen, device).shape)
 
     # Load model
-    md_name = "snakeplissken.model"
+    md_name = "snakeplissken2.model"
     policy_net, target_net, optimizer = load_model(md_name, n_actions, device)
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
@@ -105,6 +105,11 @@ if __name__ == "__main__":
             if event.type == pyg.QUIT:
                 sys.exit()
 
+        if steps_done % TARGET_UPDATE == 0 and train:
+            save_model(md_name, policy_net, target_net, optimizer)
+            print("Update target network...")
+            target_net.load_state_dict(policy_net.state_dict())
+
         # Stop the game, and restart
         if stop_game:
             print("-" * 20)
@@ -113,10 +118,7 @@ if __name__ == "__main__":
             )
             # Update the target network, copying all weights and biases in DQN
             if i_epoch % TARGET_UPDATE == 0 and train:
-                save_model(md_name, policy_net, target_net, optimizer)
                 print(f"Running for: {np.round(time.time() - t_start_game, 2)} secs")
-                print("Update target network...")
-                target_net.load_state_dict(policy_net.state_dict())
                 for param_group in optimizer.param_groups:
                     print(f"learning rate={param_group['lr']}")
             i_epoch += 1
@@ -132,11 +134,6 @@ if __name__ == "__main__":
             t_score, score = 0, 0
             snake, apples = start_game(width, height)
 
-            # if train and not exploit:
-            #     n = np.random.randint(0, 2)
-            #     for i in range(n):
-            #         snake.grow()
-
         # Load again the new screen: Initial State
         if state is None:
             state = get_game_screen(screen, device)
@@ -150,14 +147,33 @@ if __name__ == "__main__":
 
         # Key movements of agent to be done
         K = action.item()
-        if K == 0 and snake.head().direction != KEY["DOWN"]:
-            snake.head().direction = KEY["UP"]
-        elif K == 1 and snake.head().direction != KEY["UP"]:
-            snake.head().direction = KEY["DOWN"]
-        elif K == 2 and snake.head().direction != KEY["RIGHT"]:
-            snake.head().direction = KEY["LEFT"]
-        elif K == 3 and snake.head().direction != KEY["LEFT"]:
-            snake.head().direction = KEY["RIGHT"]
+        if K == 1:
+            if snake.head().direction == KEY["UP"]:
+                snake.head().direction = KEY["LEFT"]
+            elif snake.head().direction == KEY["LEFT"]:
+                snake.head().direction = KEY["DOWN"]
+            elif snake.head().direction == KEY["DOWN"]:
+                snake.head().direction = KEY["RIGHT"]
+            elif snake.head().direction == KEY["RIGHT"]:
+                snake.head().direction = KEY["UP"]
+        elif K == 2:
+            if snake.head().direction == KEY["UP"]:
+                snake.head().direction = KEY["RIGHT"]
+            elif snake.head().direction == KEY["RIGHT"]:
+                snake.head().direction = KEY["DOWN"]
+            elif snake.head().direction == KEY["DOWN"]:
+                snake.head().direction = KEY["LEFT"]
+            elif snake.head().direction == KEY["LEFT"]:
+                snake.head().direction = KEY["UP"]
+
+        # if K == 0 and snake.head().direction != KEY["DOWN"]:
+        #     snake.head().direction = KEY["UP"]
+        # elif K == 1 and snake.head().direction != KEY["UP"]:
+        #     snake.head().direction = KEY["DOWN"]
+        # elif K == 2 and snake.head().direction != KEY["RIGHT"]:
+        #     snake.head().direction = KEY["LEFT"]
+        # elif K == 3 and snake.head().direction != KEY["LEFT"]:
+        #     snake.head().direction = KEY["RIGHT"]
 
         # Human keys!
         # pressed = pyg.key.get_pressed()
@@ -175,14 +191,14 @@ if __name__ == "__main__":
 
         # Snake crash to its tail
         if check_crash(snake):
-            # score = -1.0
+            score = -1.0
             stop_game = True
 
         # Wall collision
         # Check limits ! Border of screen
         for block in wall:
             if check_collision(snake.head(), block):
-                # score = -1.0
+                score = -1.0
                 stop_game = True
                 break
 
@@ -228,7 +244,8 @@ if __name__ == "__main__":
         next_state = get_game_screen(screen, device)
         # Give some points because it alive
         if not stop_game:
-            score = 5e-3 if score == 0 else score
+            # score = 5e-3 if score == 0 else score
+            pass
         else:
             next_state = None
 
@@ -240,7 +257,11 @@ if __name__ == "__main__":
 
         if train:
             # Reward for the agent
-            reward = torch.tensor([score], device=device, dtype=torch.float)
+            if not stop_game and score == 0:
+                if steps_done % BATCH_SIZE == 0:
+                    reward = torch.tensor([score], device=device, dtype=torch.float)
+            else:
+                reward = torch.tensor([score], device=device, dtype=torch.float)
             # Store the transition in memory
             memory.push(state, action, next_state, reward)
         score = 0
@@ -249,7 +270,7 @@ if __name__ == "__main__":
 
         # ----------------------------------------
         # Perform one step of the optimization (on the target network)
-        if train and len(memory) % BATCH_SIZE == 0:
+        if train and len(memory) > BATCH_SIZE:
             loss = None
             # Run a bunch of batchs. Max = 10
             j = np.min([5, int(np.ceil(len(memory) / 100))])
