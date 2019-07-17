@@ -64,17 +64,16 @@ if __name__ == "__main__":
     # Action to be executed by the agent
     action = None
     # Train phase
-    train, restart_mem, exploit, show_screen = False, False, False, False
+    train, restart_mem, exploit, show_screen = False, True, False, False
 
     # Screen size
     size = width, height = W_WIDTH, W_HEIGHT
     screen = pyg.Surface(size)
     if show_screen:
         screen = pyg.display.set_mode(size, pyg.DOUBLEBUF)
-
-    # Icon and Title
-    pyg.display.set_icon(pyg.image.load("./img/snake.png"))
-    pyg.display.set_caption("Snake Plissken")
+        # Icon and Title
+        pyg.display.set_icon(pyg.image.load("./img/snake.png"))
+        pyg.display.set_caption("Snake Plissken")
 
     # print(get_game_screen(screen, device).shape)
 
@@ -104,9 +103,11 @@ if __name__ == "__main__":
     # Game Main loop
     while True:
         start = time.time()
-        for event in pyg.event.get():
-            if event.type == pyg.QUIT:
-                sys.exit()
+        
+        if if show_screen:
+            for event in pyg.event.get():
+                if event.type == pyg.QUIT:
+                    sys.exit()
 
         # Stop the game, and restart
         if stop_game:
@@ -350,12 +351,12 @@ if __name__ == "__main__":
             elapsed_time = 0
             apples = get_apples(width, height)
 
-        if train and steps_done % TARGET_UPDATE == 0:
-            print("Update target network...")
-            target_net.load_state_dict(policy_net.state_dict())
-            memories = {
-                "short": short_memory,
-                "good": good_long_memory,
-                "bad": bad_long_memory,
-            }
-            save_model(md_name, policy_net, target_net, optimizer, memories)
+        print("Update target network...")
+        target_net.load_state_dict(policy_net.state_dict())
+        memories = {
+            "short": short_memory,
+            "good": good_long_memory,
+            "bad": bad_long_memory,
+        }
+        save_model(md_name, policy_net, target_net, optimizer, memories)
+        break
