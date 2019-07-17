@@ -99,7 +99,7 @@ def save_model(name, policy_net, target_net, optimizer, memories):
     )
 
 
-def load_model(md_name, n_actions, device, opt="adam"):
+def load_model(md_name, n_actions, device, restart_mem=False, opt="adam"):
     # DQN Algoritm
     policy_net = DQN(n_actions).to(device)
     target_net = DQN(n_actions).to(device)
@@ -122,7 +122,11 @@ def load_model(md_name, n_actions, device, opt="adam"):
         policy_net.load_state_dict(checkpoint["dqn"])
         target_net.load_state_dict(checkpoint["target"])
         optimizer.load_state_dict(checkpoint["optimizer"])
-        # memories = checkpoint["memories"]
+        if not restart_mem:
+            memories = checkpoint["memories"]
+            memories["short"].set_capacity(MEM_LENGTH * 5)
+            memories["good"].set_capacity(MEM_LENGTH)
+            memories["bad"].set_capacity(MEM_LENGTH)
         print("Models loaded!")
     except:
         print("Couldn't load Models!")

@@ -31,6 +31,9 @@ class ReplayMemory:
         size = batch_size if size > batch_size else size
         return random.sample(self.memory, size)
 
+    def set_capacity(self, capacity):
+        self.capacity = capacity
+
     def __len__(self):
         return len(self.memory)
 

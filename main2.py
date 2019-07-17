@@ -64,7 +64,7 @@ if __name__ == "__main__":
     # Action to be executed by the agent
     action = None
     # Train phase
-    train, exploit = True, False
+    train, restart_mem, exploit = False, False, True
 
     # Screen size
     size = width, height = W_WIDTH, W_HEIGHT
@@ -78,7 +78,9 @@ if __name__ == "__main__":
 
     # Load model
     md_name = "snakeplissken_m2.model"
-    policy_net, target_net, optimizer, memories = load_model(md_name, n_actions, device)
+    policy_net, target_net, optimizer, memories = load_model(
+        md_name, n_actions, device, restart_mem=restart_mem
+    )
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
 
@@ -269,7 +271,7 @@ if __name__ == "__main__":
                     short_memory.push(state, action, next_state, reward)
             else:
                 # Store the transition in memory
-                if score == 1:
+                if score == APPLE_PRIZE:
                     good_long_memory.push(state, action, next_state, reward)
                 else:
                     bad_long_memory.push(state, action, next_state, reward)
@@ -323,11 +325,14 @@ if __name__ == "__main__":
             # Compute the expected Q values
             expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
-            # Compute MSE
-            loss = F.mse_loss(
+            # Compute MSE loss
+            # loss = F.mse_loss(
+            #     state_action_values, expected_state_action_values.unsqueeze(1)
+            # )
+            # Compute Huber loss
+            loss = F.smooth_l1_loss(
                 state_action_values, expected_state_action_values.unsqueeze(1)
             )
-
             # Optimize the model
             optimizer.zero_grad()
             loss.backward()
