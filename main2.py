@@ -103,8 +103,8 @@ if __name__ == "__main__":
     # Game Main loop
     while True:
         start = time.time()
-        
-        if if show_screen:
+
+        if show_screen:
             for event in pyg.event.get():
                 if event.type == pyg.QUIT:
                     sys.exit()
