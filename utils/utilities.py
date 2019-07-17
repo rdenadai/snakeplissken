@@ -118,7 +118,7 @@ def load_model(md_name, n_actions, device, restart_mem=False, opt="adam"):
     }
 
     try:
-        checkpoint = torch.load(md_name)
+        checkpoint = torch.load(md_name, map_location=device)
         policy_net.load_state_dict(checkpoint["dqn"])
         target_net.load_state_dict(checkpoint["target"])
         optimizer.load_state_dict(checkpoint["optimizer"])
@@ -128,6 +128,6 @@ def load_model(md_name, n_actions, device, restart_mem=False, opt="adam"):
             memories["good"].set_capacity(MEM_LENGTH)
             memories["bad"].set_capacity(MEM_LENGTH)
         print("Models loaded!")
-    except:
-        print("Couldn't load Models!")
+    except Exception as e:
+        print(f"Couldn't load Models! => {e}")
     return policy_net, target_net, optimizer, memories

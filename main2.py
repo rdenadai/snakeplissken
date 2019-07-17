@@ -64,11 +64,13 @@ if __name__ == "__main__":
     # Action to be executed by the agent
     action = None
     # Train phase
-    train, restart_mem, exploit = False, False, True
+    train, restart_mem, exploit, show_screen = False, False, False, False
 
     # Screen size
     size = width, height = W_WIDTH, W_HEIGHT
-    screen = pyg.display.set_mode(size, pyg.HWSURFACE)
+    screen = pyg.Surface(size)
+    if show_screen:
+        screen = pyg.display.set_mode(size, pyg.DOUBLEBUF)
 
     # Icon and Title
     pyg.display.set_icon(pyg.image.load("./img/snake.png"))
@@ -105,16 +107,6 @@ if __name__ == "__main__":
         for event in pyg.event.get():
             if event.type == pyg.QUIT:
                 sys.exit()
-
-        if train and steps_done % TARGET_UPDATE == 0:
-            print("Update target network...")
-            target_net.load_state_dict(policy_net.state_dict())
-            memories = {
-                "short": short_memory,
-                "good": good_long_memory,
-                "bad": bad_long_memory,
-            }
-            save_model(md_name, policy_net, target_net, optimizer, memories)
 
         # Stop the game, and restart
         if stop_game:
@@ -257,7 +249,8 @@ if __name__ == "__main__":
             next_state = None
 
         # if score == 1:
-        #     save_game_screen("state.jpg", state)
+        # save_game_screen("state.jpg", state)
+        # if next_state is not None:
         #     save_game_screen("next_state.jpg", next_state)
         #     print(score)
         #     break
@@ -347,11 +340,22 @@ if __name__ == "__main__":
 
         # Routines of pygame
         clock.tick(FPS)
-        pyg.display.flip()
-        pyg.display.update()
+        if show_screen:
+            pyg.display.flip()
+            pyg.display.update()
 
         # Reload apples position after some time
         elapsed_time += time.time() - start
         if elapsed_time > APPLE_RELOAD_TIME:
             elapsed_time = 0
             apples = get_apples(width, height)
+
+        if train and steps_done % TARGET_UPDATE == 0:
+            print("Update target network...")
+            target_net.load_state_dict(policy_net.state_dict())
+            memories = {
+                "short": short_memory,
+                "good": good_long_memory,
+                "bad": bad_long_memory,
+            }
+            save_model(md_name, policy_net, target_net, optimizer, memories)
