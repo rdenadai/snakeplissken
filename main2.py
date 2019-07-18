@@ -64,7 +64,7 @@ if __name__ == "__main__":
     # Action to be executed by the agent
     action = None
     # Train phase
-    train, restart_mem, exploit, show_screen = False, True, False, False
+    train, restart_mem, exploit, show_screen = True, False, False, False
 
     # Screen size
     size = width, height = W_WIDTH, W_HEIGHT
@@ -351,12 +351,12 @@ if __name__ == "__main__":
             elapsed_time = 0
             apples = get_apples(width, height)
 
-        print("Update target network...")
-        target_net.load_state_dict(policy_net.state_dict())
-        memories = {
-            "short": short_memory,
-            "good": good_long_memory,
-            "bad": bad_long_memory,
-        }
-        save_model(md_name, policy_net, target_net, optimizer, memories)
-        break
+        if train and steps_done % TARGET_UPDATE == 0:
+            print("Update target network...")
+            target_net.load_state_dict(policy_net.state_dict())
+            memories = {
+                "short": short_memory,
+                "good": good_long_memory,
+                "bad": bad_long_memory,
+            }
+            save_model(md_name, policy_net, target_net, optimizer, memories)
