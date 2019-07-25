@@ -64,7 +64,7 @@ if __name__ == "__main__":
     # Action to be executed by the agent
     action = None
     # Train phase
-    train, exploit = False, True
+    train, exploit = True, False
 
     # Screen size
     size = width, height = W_WIDTH, W_HEIGHT

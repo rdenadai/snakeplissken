@@ -1,7 +1,6 @@
 import math
 from configs import (
     SNAKE_SIZE,
-    SNAKE_SPEED,
     SNAKE_SEPARATION,
     FPS,
     KEY,
@@ -52,7 +51,7 @@ class Snake:
         self.size_x = len(self.stack) * SNAKE_SIZE
         self.size_y = SNAKE_SIZE
         # Movement speed
-        self.movement = (SNAKE_SIZE + SNAKE_SEPARATION) + SNAKE_SPEED
+        self.movement = SNAKE_SIZE + SNAKE_SEPARATION
 
     def head(self):
         return self.stack[0]

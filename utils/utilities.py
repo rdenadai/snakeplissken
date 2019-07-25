@@ -99,34 +99,43 @@ def save_model(name, policy_net, target_net, optimizer, memories):
     )
 
 
-def load_model(md_name, n_actions, device, restart_mem=False, opt="adam"):
+def load_model(md_name, n_actions, device, restart_mem=False, restart_models=False, restart_optim=False, opt="adam"):
     # DQN Algoritm
     policy_net = DQN(n_actions).to(device)
     target_net = DQN(n_actions).to(device)
     # Optimizer
     if "adam" in opt:
         optimizer = optim.Adam(policy_net.parameters(), lr=LEARNING_RATE)
-    else:
+    elif "rmsprop" in opt:
         optimizer = optim.RMSprop(
+            policy_net.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM
+        )
+    elif "sgd" in opt:
+        optimizer = optim.SGD(
             policy_net.parameters(), lr=LEARNING_RATE, momentum=MOMENTUM
         )
 
     memories = {
-        "short": ReplayMemory(MEM_LENGTH * 5),
-        "good": ReplayMemory(MEM_LENGTH),
-        "bad": ReplayMemory(MEM_LENGTH),
+        "short": ReplayMemory(MEM_LENGTH * 8),
+        "good": ReplayMemory(MEM_LENGTH * 3),
+        "bad": ReplayMemory(MEM_LENGTH * 3),
     }
 
     try:
         checkpoint = torch.load(md_name, map_location=device)
-        policy_net.load_state_dict(checkpoint["dqn"])
-        target_net.load_state_dict(checkpoint["target"])
-        optimizer.load_state_dict(checkpoint["optimizer"])
+        if not restart_models:
+            policy_net.load_state_dict(checkpoint["dqn"])
+            target_net.load_state_dict(checkpoint["target"])
+        if not restart_optim:
+            optimizer.load_state_dict(checkpoint["optimizer"])
         if not restart_mem:
             memories = checkpoint["memories"]
-            memories["short"].set_capacity(MEM_LENGTH * 5)
-            memories["good"].set_capacity(MEM_LENGTH)
-            memories["bad"].set_capacity(MEM_LENGTH)
+            print("short: ", len(memories["short"]))
+            print("good: ", len(memories["good"]))
+            print("bad: ", len(memories["bad"]))
+            memories["short"].set_capacity(MEM_LENGTH * 8)
+            memories["good"].set_capacity(MEM_LENGTH * 3)
+            memories["bad"].set_capacity(MEM_LENGTH * 3)
         print("Models loaded!")
     except Exception as e:
         print(f"Couldn't load Models! => {e}")

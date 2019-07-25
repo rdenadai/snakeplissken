@@ -55,16 +55,20 @@ if __name__ == "__main__":
     steps_done = 0
     # game steps
     game_steps = 0
-    # the epoch we are running
-    i_epoch = 0
     # number of games played
-    n_game = 1
+    n_game = 0
     # time between start and maximum time before reload some elements (in case apples)
     elapsed_time = 0
     # Action to be executed by the agent
     action = None
     # Train phase
-    train, restart_mem, exploit, show_screen = True, False, False, False
+    train, exploit, show_screen = True, False, True
+    options = {
+        "restart_mem": False,
+        "restart_models": False,
+        "restart_optim": False,
+        "opt": "adam"
+    }
 
     # Screen size
     size = width, height = W_WIDTH, W_HEIGHT
@@ -80,8 +84,9 @@ if __name__ == "__main__":
     # Load model
     md_name = "snakeplissken_m2.model"
     policy_net, target_net, optimizer, memories = load_model(
-        md_name, n_actions, device, restart_mem=restart_mem
+        md_name, n_actions, device, **options
     )
+    print(optimizer.__class__.__name__)
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
 
@@ -115,13 +120,8 @@ if __name__ == "__main__":
             print(
                 f"Game end => score: {np.round(t_score, 5)}, steps: {steps}, game: {n_game}"
             )
-            # Update the target network, copying all weights and biases in DQN
-            if i_epoch % TARGET_UPDATE == 0 and train:
-                print(f"Running for: {np.round(time.time() - t_start_game, 2)} secs")
-                for param_group in optimizer.param_groups:
-                    print(f"learning rate={param_group['lr']}")
-            i_epoch += 1
-            # Restart game elements
+            print(f"Running for: {np.round(time.time() - t_start_game, 2)} secs")
+             # Restart game elements
             state, next_state = None, None
             t_start_game = time.time()
             stop_game = False
@@ -190,7 +190,7 @@ if __name__ == "__main__":
 
         # Snake crash to its tail
         if check_crash(snake):
-            score = -0.5
+            score = -0.75
             stop_game = True
 
         # Wall collision
@@ -206,8 +206,8 @@ if __name__ == "__main__":
         for i, apple in enumerate(apples):
             if check_collision(snake.head(), apple):
                 del_apples.append(i)
-                score = APPLE_PRIZE
                 t_score += APPLE_PRIZE
+                score = t_score
                 snake.grow()
                 break
 
@@ -245,7 +245,7 @@ if __name__ == "__main__":
         next_state = get_game_screen(screen, device)
         # Give some points because it alive
         if not stop_game:
-            score = -5e-3 if score == 0 else score
+            score += -1e-3 if score == 0 else score
         else:
             next_state = None
 
@@ -260,23 +260,41 @@ if __name__ == "__main__":
             reward = torch.tensor([score], device=device, dtype=torch.float)
             # Reward for the agent
             if not stop_game:
-                if steps_done % 5 == 0:
+                if score >= APPLE_PRIZE:
+                    good_long_memory.push(state, action, next_state, reward)
+                if steps_done % 2 == 0 and score < 0:
                     # Store the transition in memory
                     short_memory.push(state, action, next_state, reward)
             else:
                 # Store the transition in memory
-                if score == APPLE_PRIZE:
-                    good_long_memory.push(state, action, next_state, reward)
-                else:
-                    bad_long_memory.push(state, action, next_state, reward)
+                bad_long_memory.push(state, action, next_state, reward)
         # Move to the next state
         state = next_state
         score = 0
 
         # ----------------------------------------
         # Perform one step of the optimization (on the target network)
-        if train and len(short_memory) > BATCH_SIZE:
-            # for _ in range(2):
+        if train and len(short_memory) > (BATCH_SIZE * 2):
+            if 0 >= steps_done < 10000:
+                pass
+            elif 10000 >= steps_done < 20000:
+                LEARNING_RATE = 1e-3
+            elif 20000 >= steps_done < 30000:
+                LEARNING_RATE = 1e-4
+            elif 30000 >= steps_done < 40000:
+                LEARNING_RATE = 1e-5
+            elif 40000 >= steps_done < 50000:
+                LEARNING_RATE = 1e-6
+            elif 50000 >= steps_done < 60000:
+                LEARNING_RATE = 1e-7
+            elif 60000 >= steps_done < 70000:
+                LEARNING_RATE = 1e-8
+            else:
+                train = False
+            for param_group in optimizer.param_groups:
+                if param_group['lr'] != LEARNING_RATE:
+                    param_group['lr'] = LEARNING_RATE
+
             transitions = []
             for memory in [short_memory, good_long_memory, bad_long_memory]:
                 transitions += memory.sample(BATCH_SIZE)
@@ -335,10 +353,6 @@ if __name__ == "__main__":
             optimizer.step()
         # ----------------------------------------
 
-        # One step done in the whole game...
-        steps_done += 1
-        game_steps += 1
-
         # Routines of pygame
         clock.tick(FPS)
         if show_screen:
@@ -352,11 +366,20 @@ if __name__ == "__main__":
             apples = get_apples(width, height)
 
         if train and steps_done % TARGET_UPDATE == 0:
+            print("*" * 10)
+            print(f"In training mode: {train}")
             print("Update target network...")
             target_net.load_state_dict(policy_net.state_dict())
+            for param_group in optimizer.param_groups:
+                 print(f"learning rate={param_group['lr']}")
+                 break
             memories = {
                 "short": short_memory,
                 "good": good_long_memory,
                 "bad": bad_long_memory,
             }
             save_model(md_name, policy_net, target_net, optimizer, memories)
+        
+        # One step done in the whole game...
+        steps_done += 1
+        game_steps += 1
