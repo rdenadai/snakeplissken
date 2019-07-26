@@ -41,13 +41,17 @@ def check_crash(snake):
 
 
 def get_game_screen(screen, device):
-    resize = T.Compose(
-        [T.ToPILImage(), T.Resize(IMG_SIZE, interpolation=Image.NEAREST), T.ToTensor()]
+    normalize = T.Compose(
+        [
+            T.ToPILImage(),
+            T.Grayscale(3),
+            T.Resize(IMG_SIZE, interpolation=Image.NEAREST),
+        ]
     )
-    screen = np.rot90(pygame.surfarray.array3d(screen))[::-1]  # .transpose(2, 0, 1)
-    # screen = np.ascontiguousarray(screen, dtype=np.float32) / 255.0
-    # screen = torch.from_numpy(screen)
-    return resize(screen).unsqueeze(0).to(device)
+    screen = np.rot90(pygame.surfarray.array3d(screen))[::-1]
+    screen = np.array(normalize(screen), dtype=np.float32) / 255.0
+    screen = torch.from_numpy(screen.transpose(2, 0, 1))
+    return screen.unsqueeze(0).to(device)
 
 
 def save_game_screen(fname, img):
@@ -99,7 +103,15 @@ def save_model(name, policy_net, target_net, optimizer, memories):
     )
 
 
-def load_model(md_name, n_actions, device, restart_mem=False, restart_models=False, restart_optim=False, opt="adam"):
+def load_model(
+    md_name,
+    n_actions,
+    device,
+    restart_mem=False,
+    restart_models=False,
+    restart_optim=False,
+    opt="adam",
+):
     # DQN Algoritm
     policy_net = DQN(n_actions).to(device)
     target_net = DQN(n_actions).to(device)
@@ -116,7 +128,7 @@ def load_model(md_name, n_actions, device, restart_mem=False, restart_models=Fal
         )
 
     memories = {
-        "short": ReplayMemory(MEM_LENGTH * 8),
+        "short": ReplayMemory(MEM_LENGTH * 10),
         "good": ReplayMemory(MEM_LENGTH * 3),
         "bad": ReplayMemory(MEM_LENGTH * 3),
     }
@@ -133,7 +145,7 @@ def load_model(md_name, n_actions, device, restart_mem=False, restart_models=Fal
             print("short: ", len(memories["short"]))
             print("good: ", len(memories["good"]))
             print("bad: ", len(memories["bad"]))
-            memories["short"].set_capacity(MEM_LENGTH * 8)
+            memories["short"].set_capacity(MEM_LENGTH * 10)
             memories["good"].set_capacity(MEM_LENGTH * 3)
             memories["bad"].set_capacity(MEM_LENGTH * 3)
         print("Models loaded!")

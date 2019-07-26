@@ -67,7 +67,7 @@ if __name__ == "__main__":
         "restart_mem": False,
         "restart_models": False,
         "restart_optim": False,
-        "opt": "adam"
+        "opt": "adam",
     }
 
     # Screen size
@@ -121,7 +121,7 @@ if __name__ == "__main__":
                 f"Game end => score: {np.round(t_score, 5)}, steps: {steps}, game: {n_game}"
             )
             print(f"Running for: {np.round(time.time() - t_start_game, 2)} secs")
-             # Restart game elements
+            # Restart game elements
             state, next_state = None, None
             t_start_game = time.time()
             stop_game = False
@@ -275,25 +275,29 @@ if __name__ == "__main__":
         # ----------------------------------------
         # Perform one step of the optimization (on the target network)
         if train and len(short_memory) > (BATCH_SIZE * 2):
-            if 0 >= steps_done < 10000:
+            if steps_done >= 0 and steps_done < 5000:
                 pass
-            elif 10000 >= steps_done < 20000:
+            elif steps_done >= 5000 and steps_done < 10000:
                 LEARNING_RATE = 1e-3
-            elif 20000 >= steps_done < 30000:
+            elif steps_done >= 10000 and steps_done < 15000:
                 LEARNING_RATE = 1e-4
-            elif 30000 >= steps_done < 40000:
+            elif steps_done >= 15000 and steps_done < 20000:
                 LEARNING_RATE = 1e-5
-            elif 40000 >= steps_done < 50000:
+            elif steps_done >= 20000 and steps_done < 25000:
                 LEARNING_RATE = 1e-6
-            elif 50000 >= steps_done < 60000:
+            elif steps_done >= 25000 and steps_done < 30000:
                 LEARNING_RATE = 1e-7
-            elif 60000 >= steps_done < 70000:
+            elif steps_done >= 30000 and steps_done < 35000:
                 LEARNING_RATE = 1e-8
             else:
-                train = False
+                if exploit and steps_done >= 35000:
+                    break
+                LEARNING_RATE = 1e-2
+                exploit = True
+                steps_done = 0
             for param_group in optimizer.param_groups:
-                if param_group['lr'] != LEARNING_RATE:
-                    param_group['lr'] = LEARNING_RATE
+                if param_group["lr"] != LEARNING_RATE:
+                    param_group["lr"] = LEARNING_RATE
 
             transitions = []
             for memory in [short_memory, good_long_memory, bad_long_memory]:
@@ -368,18 +372,19 @@ if __name__ == "__main__":
         if train and steps_done % TARGET_UPDATE == 0:
             print("*" * 10)
             print(f"In training mode: {train}")
+            print(f"In exploit mode: {exploit}")
             print("Update target network...")
             target_net.load_state_dict(policy_net.state_dict())
             for param_group in optimizer.param_groups:
-                 print(f"learning rate={param_group['lr']}")
-                 break
+                print(f"learning rate={param_group['lr']}")
+                break
             memories = {
                 "short": short_memory,
                 "good": good_long_memory,
                 "bad": bad_long_memory,
             }
             save_model(md_name, policy_net, target_net, optimizer, memories)
-        
+
         # One step done in the whole game...
         steps_done += 1
         game_steps += 1
