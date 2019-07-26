@@ -86,7 +86,7 @@ if __name__ == "__main__":
     policy_net, target_net, optimizer, memories = load_model(
         md_name, n_actions, device, **options
     )
-    print(optimizer.__class__.__name__)
+    print("Optimizer:", optimizer.__class__.__name__)
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
 
@@ -96,6 +96,8 @@ if __name__ == "__main__":
     # Long is were the bad and good are
     good_long_memory = memories["good"]
     bad_long_memory = memories["bad"]
+
+    loss = None
 
     # Game elements started
     t_score, score = 0, 0
@@ -207,20 +209,20 @@ if __name__ == "__main__":
             if check_collision(snake.head(), apple):
                 del_apples.append(i)
                 t_score += APPLE_PRIZE
-                score = t_score
+                score = APPLE_PRIZE
                 snake.grow()
                 break
 
         # Clean screen
         screen.fill(BLACK)
 
-        # Draw snake
-        for segment in reversed(snake.stack):
-            draw_object(screen, segment.color, (segment.x, segment.y) + segment.size)
-
         # Draw Border
         for block in wall:
             draw_object(screen, block.color, block.position)
+
+        # Draw snake
+        for segment in snake.stack:
+            draw_object(screen, segment.color, (segment.x, segment.y) + segment.size)
 
         # Draw appples
         if len(apples) == 0:
@@ -245,7 +247,8 @@ if __name__ == "__main__":
         next_state = get_game_screen(screen, device)
         # Give some points because it alive
         if not stop_game:
-            score += -1e-3 if score == 0 else score
+            # score = -1e-3 if score == 0 else score
+            score = 0
         else:
             next_state = None
 
@@ -275,24 +278,13 @@ if __name__ == "__main__":
         # ----------------------------------------
         # Perform one step of the optimization (on the target network)
         if train and len(short_memory) > (BATCH_SIZE * 2):
-            if steps_done >= 0 and steps_done < 5000:
-                pass
-            elif steps_done >= 5000 and steps_done < 10000:
-                LEARNING_RATE = 1e-3
-            elif steps_done >= 10000 and steps_done < 15000:
-                LEARNING_RATE = 1e-4
-            elif steps_done >= 15000 and steps_done < 20000:
-                LEARNING_RATE = 1e-5
-            elif steps_done >= 20000 and steps_done < 25000:
-                LEARNING_RATE = 1e-6
-            elif steps_done >= 25000 and steps_done < 30000:
-                LEARNING_RATE = 1e-7
-            elif steps_done >= 30000 and steps_done < 35000:
-                LEARNING_RATE = 1e-8
+            if steps_done >= 0 and steps_done <= 100_000:
+                if steps_done != 0 and steps_done % 10_000 == 0 and LEARNING_RATE > 1e-10:
+                    LEARNING_RATE *= 1e-1
             else:
-                if exploit and steps_done >= 35000:
+                if exploit and steps_done >= 1000:
                     break
-                LEARNING_RATE = 1e-2
+                LEARNING_RATE = 1e-1
                 exploit = True
                 steps_done = 0
             for param_group in optimizer.param_groups:
@@ -342,13 +334,13 @@ if __name__ == "__main__":
             expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
             # Compute MSE loss
-            # loss = F.mse_loss(
-            #     state_action_values, expected_state_action_values.unsqueeze(1)
-            # )
-            # Compute Huber loss
-            loss = F.smooth_l1_loss(
+            loss = F.mse_loss(
                 state_action_values, expected_state_action_values.unsqueeze(1)
             )
+            # Compute Huber loss
+            # loss = F.smooth_l1_loss(
+            #     state_action_values, expected_state_action_values.unsqueeze(1)
+            # )
             # Optimize the model
             optimizer.zero_grad()
             loss.backward()
@@ -373,6 +365,7 @@ if __name__ == "__main__":
             print("*" * 10)
             print(f"In training mode: {train}")
             print(f"In exploit mode: {exploit}")
+            print("Loss:", loss)
             print("Update target network...")
             target_net.load_state_dict(policy_net.state_dict())
             for param_group in optimizer.param_groups:
