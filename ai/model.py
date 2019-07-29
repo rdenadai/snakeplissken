@@ -41,15 +41,15 @@ class ReplayMemory:
 class DQN(nn.Module):
     def __init__(self, outputs):
         super(DQN, self).__init__()
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=8, stride=4)
+        self.conv1 = nn.Conv2d(4, 32, kernel_size=8, stride=4)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
         self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1)
 
-        self.fc_adv1 = nn.Linear(512, 512)
+        self.fc_adv1 = nn.Linear(2048, 512)
         self.dp_adv = nn.Dropout(p=0.1)
         self.fc_adv2 = nn.Linear(512, outputs)
 
-        self.fc_val1 = nn.Linear(512, 512)
+        self.fc_val1 = nn.Linear(2048, 512)
         self.dp_val = nn.Dropout(p=0.1)
         self.fc_val2 = nn.Linear(512, 1)
 
