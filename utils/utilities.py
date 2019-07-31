@@ -137,9 +137,9 @@ def load_model(
         )
 
     memories = {
-        "short": ReplayMemory(MEM_LENGTH * 10),
-        "good": ReplayMemory(MEM_LENGTH * 4),
-        "bad": ReplayMemory(MEM_LENGTH * 3),
+        "short": ReplayMemory(int(MEM_LENGTH * 10)),
+        "good": ReplayMemory(int(MEM_LENGTH * 3.35)),
+        "bad": ReplayMemory(int(MEM_LENGTH * 1.55)),
     }
 
     try:
@@ -151,9 +151,9 @@ def load_model(
             optimizer.load_state_dict(checkpoint["optimizer"])
         if not restart_mem:
             memories = checkpoint["memories"]
-            memories["short"].set_capacity(MEM_LENGTH * 10)
-            memories["good"].set_capacity(MEM_LENGTH * 4)
-            memories["bad"].set_capacity(MEM_LENGTH * 3)
+            memories["short"].set_capacity(int(MEM_LENGTH * 10))
+            memories["good"].set_capacity(int(MEM_LENGTH * 3.35))
+            memories["bad"].set_capacity(int(MEM_LENGTH * 1.55))
         print("Models loaded!")
     except Exception as e:
         print(f"Couldn't load Models! => {e}")

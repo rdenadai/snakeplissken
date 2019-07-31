@@ -48,77 +48,75 @@ if __name__ == "__main__":
 
     vloss = [0]
 
+    t_start_game = time.time()
     # Game Main loop
     for epoch in range(epochs):
-        start = time.time()
+        if len(short_memory) > (BATCH_SIZE):
+            for param_group in optimizer.param_groups:
+                if param_group["lr"] != LEARNING_RATE:
+                    param_group["lr"] = LEARNING_RATE
+                    break
 
-        mloss = np.round(np.mean(vloss), 5)
-        if mloss > 1e-6:
-            if mloss > 2 and mloss < 100:
-                LEARNING_RATE = 1e-4
-            if mloss > 0.5 and mloss < 2:
-                LEARNING_RATE = 1e-6
-        for param_group in optimizer.param_groups:
-            if param_group["lr"] != LEARNING_RATE:
-                param_group["lr"] = LEARNING_RATE
+            transitions = []
+            for memory in [short_memory, good_long_memory, bad_long_memory]:
+                transitions += memory.sample(BATCH_SIZE)
+            size = len(transitions)
+            size = BATCH_SIZE if size > BATCH_SIZE else size
+            transitions = random.sample(transitions, size)
+            # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
+            # detailed explanation). This converts batch-array of Transitions
+            # to Transition of batch-arrays.
+            batch = Transition(*zip(*transitions))
 
-        transitions = []
-        for memory in [short_memory, good_long_memory, bad_long_memory]:
-            transitions += memory.sample(BATCH_SIZE)
-        size = len(transitions)
-        size = BATCH_SIZE if size > BATCH_SIZE else size
-        transitions = random.sample(transitions, size)
-        # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
-        # detailed explanation). This converts batch-array of Transitions
-        # to Transition of batch-arrays.
-        batch = Transition(*zip(*transitions))
+            # Compute a mask of non-final states and concatenate the batch elements
+            # (a final state would've been the one after which simulation ended)
+            non_final_mask = torch.tensor(
+                tuple(map(lambda s: s is not None, batch.next_state)), device=device
+            )
+            final_mask = 1 - non_final_mask
 
-        # Compute a mask of non-final states and concatenate the batch elements
-        # (a final state would've been the one after which simulation ended)
-        non_final_mask = torch.tensor(
-            tuple(map(lambda s: s is not None, batch.next_state)),
-            device=device,
-            dtype=torch.uint8,
-        )
-        non_final_next_states = torch.cat(
-            [s for s in batch.next_state if s is not None]
-        )
-        state_batch = torch.cat(batch.state)
-        action_batch = torch.cat(batch.action)
-        reward_batch = torch.cat(batch.reward)
+            non_final_next_states = torch.cat(
+                [s for s in batch.next_state if s is not None]
+            )
+            state_batch = torch.cat(batch.state)
+            action_batch = torch.cat(batch.action)
+            reward_batch = torch.cat(batch.reward)
 
-        # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
-        # columns of actions taken. These are the actions which would've been taken
-        # for each batch state according to policy_net
-        state_action_values = policy_net(state_batch).gather(1, action_batch)
+            reward_batch.data.clamp_(-1, 1)
+            # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
+            # columns of actions taken. These are the actions which would've been taken
+            # for each batch state according to policy_net
+            state_action_values = policy_net(state_batch).gather(1, action_batch)
 
-        # Compute V(s_{t+1}) for all next states.
-        # Expected values of actions for non_final_next_states are computed based
-        # on the "older" target_net; selecting their best reward with max(1)[0].
-        # This is merged based on the mask, such that we'll have either the expected
-        # state value or 0 in case the state was final.
-        next_state_values = torch.zeros(BATCH_SIZE, device=device)
-        next_state_values[non_final_mask] = (
-            target_net(non_final_next_states).max(1)[0].detach()
-        )
-        # Compute the expected Q values
-        expected_state_action_values = (next_state_values * GAMMA) + reward_batch
+            # Compute V(s_{t+1}) for all next states.
+            # Expected values of actions for non_final_next_states are computed based
+            # on the "older" target_net; selecting their best reward with max(1)[0].
+            # This is merged based on the mask, such that we'll have either the expected
+            # state value or 0 in case the state was final.
+            expected_state_action_values = torch.zeros(BATCH_SIZE, device=device)
+            # Compute the expected Q values
+            expected_state_action_values[non_final_mask] = (
+                target_net(non_final_next_states).max(1)[0].detach() * GAMMA
+                + reward_batch[non_final_mask].detach()
+            )
+            expected_state_action_values[final_mask] = reward_batch[final_mask].detach()
 
-        # Compute MSE loss
-        loss = F.mse_loss(
-            state_action_values, expected_state_action_values.unsqueeze(1)
-        )
-        vloss += [loss.item()]
-        # Compute Huber loss
-        # loss = F.smooth_l1_loss(
-        #     state_action_values, expected_state_action_values.unsqueeze(1)
-        # )
-        # Optimize the model
-        optimizer.zero_grad()
-        loss.backward()
-        for param in policy_net.parameters():
-            param.grad.data.clamp_(-1, 1)
-        optimizer.step()
+            # Compute MSE loss
+            loss = F.mse_loss(
+                state_action_values, expected_state_action_values.unsqueeze(1)
+            )
+            # Compute Huber loss
+            # loss = F.smooth_l1_loss(
+            #     state_action_values, expected_state_action_values.unsqueeze(1)
+            # )
+            vloss += [loss.item()]
+            # Optimize the model
+            optimizer.zero_grad()
+            loss.backward()
+            for param in policy_net.parameters():
+                param.grad.data.clamp_(-1, 1)
+            optimizer.step()
+        # ----------------------------------------
 
         if steps_done % TARGET_UPDATE == 0:
             steps = (
@@ -128,6 +126,7 @@ if __name__ == "__main__":
             )
             print("*" * 20)
             print(f"Steps: {steps}")
+            print(f"Running for: {np.round(time.time() - t_start_game, 2)} secs")
             print(f"Batch: {BATCH_SIZE}")
             print(f"Loss: {np.round(np.mean(vloss), 5)}")
             print("Optimizer:", optimizer.__class__.__name__)
@@ -146,7 +145,7 @@ if __name__ == "__main__":
                 "bad": bad_long_memory,
             }
             save_model(md_name, policy_net, target_net, optimizer, memories)
-            t_score, vloss, t_start_game = [0], [0], time.time()
+            vloss = [0]
 
         # One step done in the whole game...
         steps_done += 1

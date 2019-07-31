@@ -33,6 +33,8 @@ class ReplayMemory:
 
     def set_capacity(self, capacity):
         self.capacity = capacity
+        if len(self.memory) > self.capacity:
+            self.memory = self.memory[: self.capacity]
 
     def __len__(self):
         return len(self.memory)

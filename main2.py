@@ -7,6 +7,7 @@ import pygame as pyg
 from pygame.locals import *
 import torch
 from torch.optim import Adam, RMSprop
+from torch.optim.lr_scheduler import CyclicLR
 import torch.nn.functional as F
 from configs import *
 from utils.utilities import *
@@ -84,6 +85,16 @@ if __name__ == "__main__":
     )
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
+
+    # _lr_scheduler = CyclicLR(
+    #     optimizer,
+    #     base_lr=LEARNING_RATE,
+    #     max_lr=1e-5,
+    #     step_size_up=5000,
+    #     mode="exp_range",
+    #     gamma=GAMMA,
+    #     cycle_momentum=False,
+    # )
 
     # Memory
     # Short is garbage
@@ -239,6 +250,9 @@ if __name__ == "__main__":
         # ----------------------------------------
         # Perform one step of the optimization (on the target network)
         if train and len(short_memory) > (BATCH_SIZE):
+            if steps_done % 10000 == 0:
+                exploit = not exploit
+
             for param_group in optimizer.param_groups:
                 if param_group["lr"] != LEARNING_RATE:
                     param_group["lr"] = LEARNING_RATE
@@ -303,6 +317,7 @@ if __name__ == "__main__":
             for param in policy_net.parameters():
                 param.grad.data.clamp_(-1, 1)
             optimizer.step()
+            # _lr_scheduler.step()
         # ----------------------------------------
 
         # Routines of pygame
