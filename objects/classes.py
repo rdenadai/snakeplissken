@@ -1,12 +1,5 @@
 import math
-from configs import (
-    SNAKE_SIZE,
-    SNAKE_SEPARATION,
-    FPS,
-    KEY,
-    APPLE_SIZE,
-    WALL_SIZE,
-)
+from configs import SNAKE_SIZE, SNAKE_SEPARATION, FPS, KEY, APPLE_SIZE, WALL_SIZE
 
 
 class Segment:

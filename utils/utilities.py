@@ -65,7 +65,7 @@ def get_game_screen(screen, device):
 
 def save_game_screen(fname, img):
     if isinstance(img, torch.Tensor):
-        save_image(img.cpu().squeeze(0), fname)
+        save_image(img.cpu().squeeze(0)[0], fname)
     else:
         Image.fromarray(img).save(fname)
 
@@ -119,6 +119,7 @@ def load_model(
     restart_mem=False,
     restart_models=False,
     restart_optim=False,
+    random_clean_memory=False,
     opt="adam",
 ):
     # DQN Algoritm
@@ -154,6 +155,10 @@ def load_model(
             memories["short"].set_capacity(int(MEM_LENGTH * 10))
             memories["good"].set_capacity(int(MEM_LENGTH * 3.35))
             memories["bad"].set_capacity(int(MEM_LENGTH * 1.55))
+            if random_clean_memory:
+                memories["short"].random_clean_memory(MEM_CLEAN_SIZE)
+                memories["good"].random_clean_memory(MEM_CLEAN_SIZE)
+                memories["bad"].random_clean_memory(MEM_CLEAN_SIZE)
         print("Models loaded!")
     except Exception as e:
         print(f"Couldn't load Models! => {e}")

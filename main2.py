@@ -64,6 +64,7 @@ if __name__ == "__main__":
         "restart_mem": False,
         "restart_models": False,
         "restart_optim": False,
+        "random_clean_memory": False,
         "opt": "adam",
     }
 
@@ -118,6 +119,13 @@ if __name__ == "__main__":
         if show_screen:
             for event in pyg.event.get():
                 if event.type == pyg.QUIT:
+                    if train:
+                        memories = {
+                            "short": short_memory,
+                            "good": good_long_memory,
+                            "bad": bad_long_memory,
+                        }
+                        save_model(md_name, policy_net, target_net, optimizer, memories)
                     sys.exit()
 
         # Stop the game, and restart
@@ -237,6 +245,7 @@ if __name__ == "__main__":
             if not stop_game:
                 if score >= APPLE_PRIZE:
                     good_long_memory.push(state, action, next_state, reward)
+                    save_game_screen("state.jpg", state)
                 if score <= 0:
                     # Store the transition in memory
                     short_memory.push(state, action, next_state, reward)
@@ -264,6 +273,7 @@ if __name__ == "__main__":
             size = len(transitions)
             size = BATCH_SIZE if size > BATCH_SIZE else size
             transitions = random.sample(transitions, size)
+
             # Transpose the batch (see https://stackoverflow.com/a/19343/3343043 for
             # detailed explanation). This converts batch-array of Transitions
             # to Transition of batch-arrays.

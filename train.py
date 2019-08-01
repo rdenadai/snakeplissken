@@ -28,6 +28,7 @@ if __name__ == "__main__":
         "restart_mem": False,
         "restart_models": False,
         "restart_optim": False,
+        "random_clean_memory": False,
         "opt": "adam",
     }
 
