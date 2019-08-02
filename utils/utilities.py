@@ -100,7 +100,7 @@ def start_game(width, height):
 
 
 def save_model(name, policy_net, target_net, optimizer, memories):
-    print("Model saved...")
+    print("Saving model... wait...")
     torch.save(
         {
             "dqn": policy_net.state_dict(),
@@ -110,6 +110,7 @@ def save_model(name, policy_net, target_net, optimizer, memories):
         },
         name,
     )
+    print("Model saved!")
 
 
 def load_model(
