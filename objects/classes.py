@@ -3,6 +3,9 @@ from configs import SNAKE_SIZE, SNAKE_SEPARATION, FPS, KEY, APPLE_SIZE, WALL_SIZ
 
 
 class Segment:
+
+    __slots__ = ["x", "y", "color", "size", "direction"]
+
     def __init__(self, x, y, color):
         self.x = x
         self.y = y
@@ -12,6 +15,9 @@ class Segment:
 
 
 class Apple:
+
+    __slots__ = ["x", "y", "color", "position"]
+
     def __init__(self, x, y, color):
         self.x = x
         self.y = y
@@ -20,6 +26,9 @@ class Apple:
 
 
 class Wall:
+
+    __slots__ = ["x", "y", "color", "position"]
+
     def __init__(self, x, y, color):
         self.x = x
         self.y = y

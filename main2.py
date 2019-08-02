@@ -59,7 +59,7 @@ if __name__ == "__main__":
     # Action to be executed by the agent
     action = None
     # Train phase
-    train, exploit, show_screen = True, False, True
+    train, exploit, show_screen = True, False, False
     options = {
         "restart_mem": False,
         "restart_models": False,
@@ -245,7 +245,7 @@ if __name__ == "__main__":
             if not stop_game:
                 if score >= APPLE_PRIZE:
                     good_long_memory.push(state, action, next_state, reward)
-                    save_game_screen("state.jpg", state)
+                    # save_game_screen("state.jpg", state)
                 if score <= 0:
                     # Store the transition in memory
                     short_memory.push(state, action, next_state, reward)
@@ -259,7 +259,7 @@ if __name__ == "__main__":
         # ----------------------------------------
         # Perform one step of the optimization (on the target network)
         if train and len(short_memory) > (BATCH_SIZE):
-            if steps_done % 10000 == 0:
+            if steps_done % 50000 == 0:
                 exploit = not exploit
 
             for param_group in optimizer.param_groups:
@@ -332,6 +332,7 @@ if __name__ == "__main__":
 
         # Routines of pygame
         clock.tick(FPS)
+        # print(clock.get_fps())
         if show_screen:
             pyg.display.flip()
             pyg.display.update()
@@ -360,13 +361,14 @@ if __name__ == "__main__":
             print("  - bad: ", len(memories["bad"]))
             print("Update target network...")
             target_net.load_state_dict(policy_net.state_dict())
+            t_score, vloss = [1], [0]
+
+        if train and steps_done % MODEL_SAVE == 0:
             memories = {
                 "short": short_memory,
                 "good": good_long_memory,
                 "bad": bad_long_memory,
             }
             save_model(md_name, policy_net, target_net, optimizer, memories)
-            t_score, vloss = [1], [0]
-
         # One step done in the whole game...
         steps_done += 1
