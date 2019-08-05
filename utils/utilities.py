@@ -164,3 +164,12 @@ def load_model(
     except Exception as e:
         print(f"Couldn't load Models! => {e}")
     return policy_net, target_net, optimizer, memories
+
+
+def load_model_only(md_name, n_actions, device):
+    policy_net = DQN(n_actions).to(device)
+    target_net = DQN(n_actions).to(device)
+    checkpoint = torch.load(md_name, map_location=device)
+    policy_net.load_state_dict(checkpoint["dqn"])
+    target_net.load_state_dict(checkpoint["target"])
+    return policy_net, target_net
