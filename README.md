@@ -10,3 +10,4 @@ My hardware to train the Agent is:
  - NVIDIA Geforce 1060 with 6 Gb
 
 
+![Agent Playing](https://github.com/rdenadai/snakeplissken/blob/master/img/snake.gif)
