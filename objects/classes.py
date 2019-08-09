@@ -1,5 +1,11 @@
 import math
+import numpy as np
+from numba import jitclass
+from numba import int64, float32
 from configs import SNAKE_SIZE, SNAKE_SEPARATION, FPS, KEY, APPLE_SIZE, WALL_SIZE
+
+
+spec = [("x", int64), ("y", int64), ("color", int64[:]), ("position", int64[:])]
 
 
 class Segment:
@@ -14,26 +20,28 @@ class Segment:
         self.direction = KEY["RIGHT"]
 
 
+@jitclass(spec)
 class Apple:
 
-    __slots__ = ["x", "y", "color", "position"]
+    # __slots__ = ["x", "y", "color", "position"]
 
     def __init__(self, x, y, color):
         self.x = x
         self.y = y
         self.color = color
-        self.position = (x, y, APPLE_SIZE, APPLE_SIZE)
+        self.position = np.array([x, y, WALL_SIZE, WALL_SIZE])
 
 
+@jitclass(spec)
 class Wall:
 
-    __slots__ = ["x", "y", "color", "position"]
+    # __slots__ = ["x", "y", "color", "position"]
 
     def __init__(self, x, y, color):
         self.x = x
         self.y = y
         self.color = color
-        self.position = (x, y, WALL_SIZE, WALL_SIZE)
+        self.position = np.array([x, y, WALL_SIZE, WALL_SIZE])
 
 
 class Snake:

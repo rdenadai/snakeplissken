@@ -59,13 +59,13 @@ if __name__ == "__main__":
     # Action to be executed by the agent
     action = None
     # Train phase
-    train, exploit, show_screen = True, False, True
+    train, exploit, show_screen = True, True, True
     options = {
         "restart_mem": False,
         "restart_models": False,
         "restart_optim": False,
-        "random_clean_memory": True,
-        "opt": "adam",
+        "random_clean_memory": False,
+        "opt": "rmsprop",
     }
 
     # Screen size
@@ -87,15 +87,11 @@ if __name__ == "__main__":
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
 
-    # _lr_scheduler = CyclicLR(
-    #     optimizer,
-    #     base_lr=LEARNING_RATE,
-    #     max_lr=1e-5,
-    #     step_size_up=5000,
-    #     mode="exp_range",
-    #     gamma=GAMMA,
-    #     cycle_momentum=False,
-    # )
+    # Starting High learning rate
+    for param_group in optimizer.param_groups:
+        if param_group["lr"] != 5e-6:
+            param_group["lr"] = 5e-6
+            break
 
     # Memory
     # Short is garbage
@@ -146,7 +142,7 @@ if __name__ == "__main__":
 
         # Load again the new screen: Initial State
         if state is None:
-            state = get_game_screen(screen, device)
+            state = get_state(screen, device)
 
         # Action and reward of the agent
         if train and not exploit:
@@ -182,7 +178,7 @@ if __name__ == "__main__":
 
         # Snake crash to its tail
         if check_crash(snake):
-            score = SNAKE_EAT_ITSELF_PRIZE + sum([1e-3 for segment in snake.stack])
+            score = SNAKE_EAT_ITSELF_PRIZE  # + sum([1e-3 for segment in snake.stack])
             stop_game = True
 
         # Wall collision
@@ -216,7 +212,7 @@ if __name__ == "__main__":
 
         # Draw appples
         if len(apples) == 0:
-            apples = get_apples(width, height)
+            apples = get_apples(width, height, get_snake_position(snake))
         for apple in apples:
             draw_object(screen, apple.color, apple.position)
 
@@ -226,21 +222,14 @@ if __name__ == "__main__":
 
         # Reload apples position after some time
         if steps_done % APPLE_RELOAD_STEPS == 0:
-            apples = get_apples(width, height)
-
-        # Print on the screen the score and other info
-        # str_score = font.render(
-        #     f"score: {np.round(score, 2)}, steps: {steps}, game: {n_game}", True, WHITE
-        # )
-        # screen.blit(str_score, (10, 10))
+            apples = get_apples(width, height, get_snake_position(snake))
 
         # Next state for the agent
-        next_state = get_game_screen(screen, device)
+        next_state = None
         # Give some points because it alive
         if not stop_game:
             score = SNAKE_ALIVE_PRIZE if score == 0 else score
-        else:
-            next_state = None
+            next_state = get_next_state(screen, state, device)
 
         if train:
             reward = torch.tensor([score], device=device, dtype=torch.float)
@@ -248,8 +237,7 @@ if __name__ == "__main__":
             if not stop_game:
                 if score >= APPLE_PRIZE:
                     good_long_memory.push(state, action, next_state, reward)
-                    # save_game_screen("state.jpg", state)
-                if score <= 0:
+                else:
                     # Store the transition in memory
                     short_memory.push(state, action, next_state, reward)
             else:
@@ -262,13 +250,15 @@ if __name__ == "__main__":
         # ----------------------------------------
         # Perform one step of the optimization (on the target network)
         if train and len(short_memory) > (BATCH_SIZE):
-            if steps_done % 50000 == 0:
+            # Alternate a mode
+            if steps_done % 10_000 == 0:
+                # Decay learning rate
+                for param_group in optimizer.param_groups:
+                    if param_group["lr"] > LEARNING_RATE:
+                        param_group["lr"] = np.round(param_group["lr"] * 0.97, 10)
+                        break
+            if steps_done % 5_000 == 0:
                 exploit = not exploit
-
-            for param_group in optimizer.param_groups:
-                if param_group["lr"] != LEARNING_RATE:
-                    param_group["lr"] = LEARNING_RATE
-                    break
 
             transitions = []
             for memory in [short_memory, good_long_memory, bad_long_memory]:
@@ -296,7 +286,6 @@ if __name__ == "__main__":
             action_batch = torch.cat(batch.action)
             reward_batch = torch.cat(batch.reward)
 
-            reward_batch.data.clamp_(-1, 1)
             # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
             # columns of actions taken. These are the actions which would've been taken
             # for each batch state according to policy_net
@@ -316,13 +305,13 @@ if __name__ == "__main__":
             expected_state_action_values[final_mask] = reward_batch[final_mask].detach()
 
             # Compute MSE loss
-            # loss = F.mse_loss(
-            #     state_action_values, expected_state_action_values.unsqueeze(1)
-            # )
-            # Compute Huber loss
-            loss = F.smooth_l1_loss(
+            loss = F.mse_loss(
                 state_action_values, expected_state_action_values.unsqueeze(1)
             )
+            # Compute Huber loss
+            # loss = F.smooth_l1_loss(
+            #     state_action_values, expected_state_action_values.unsqueeze(1)
+            # )
             vloss += [loss.item()]
             # Optimize the model
             optimizer.zero_grad()
@@ -330,14 +319,11 @@ if __name__ == "__main__":
             for param in policy_net.parameters():
                 param.grad.data.clamp_(-1, 1)
             optimizer.step()
-            # _lr_scheduler.step()
         # ----------------------------------------
 
         # Routines of pygame
         clock.tick(FPS)
-        # print(clock.get_fps())
         if show_screen:
-            # pyg.display.flip()
             pyg.display.update()
 
         if train and steps_done % TARGET_UPDATE == 0:
@@ -348,7 +334,10 @@ if __name__ == "__main__":
             )
             print("*" * 20)
             print(f"Steps: {steps}, N Game: {n_game}")
-            print(f"Score: {np.round(np.mean(t_score), 5)}")
+            print(f"Score:")
+            print(f"  - mean: {np.round(np.mean(t_score), 5)}")
+            print(f"  - median: {np.round(np.median(t_score), 5)}")
+            print(f"  - max: {np.round(np.max(t_score), 5)}")
             print(f"FPS: {np.round(clock.get_fps(), 2)}")
             print(f"Running for: {np.round(time.time() - t_start_game, 2)} secs")
             print(f"In training mode: {train}")

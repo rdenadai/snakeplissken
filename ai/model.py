@@ -14,6 +14,9 @@ Transition = namedtuple("Transition", ("state", "action", "next_state", "reward"
 
 
 class ReplayMemory:
+
+    __slots__ = ["capacity", "memory", "position"]
+
     def __init__(self, capacity):
         self.capacity = capacity
         self.memory = []
@@ -36,6 +39,7 @@ class ReplayMemory:
         self.capacity = capacity
         if len(self.memory) > self.capacity:
             self.memory = self.memory[: self.capacity]
+            self.position = 0
 
     def random_clean_memory(self, size):
         if size <= len(self.memory):
@@ -46,19 +50,17 @@ class ReplayMemory:
         return len(self.memory)
 
 
-class DQN(nn.Module):
+class DuelingDQN(nn.Module):
     def __init__(self, outputs):
-        super(DQN, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(4, 32, kernel_size=8, stride=4)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1)
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
 
-        self.fc_adv1 = nn.Linear(2048, 512)
-        self.dp_adv = nn.Dropout(p=0.1)
+        self.fc_adv1 = nn.Linear(3136, 512)
         self.fc_adv2 = nn.Linear(512, outputs)
 
-        self.fc_val1 = nn.Linear(2048, 512)
-        self.dp_val = nn.Dropout(p=0.1)
+        self.fc_val1 = nn.Linear(3136, 512)
         self.fc_val2 = nn.Linear(512, 1)
 
     # Called with either one element to determine next action, or a batch
@@ -69,12 +71,10 @@ class DQN(nn.Module):
         x = F.relu(self.conv3(x))
         x = x.view(x.size(0), -1)
 
-        val = F.leaky_relu(self.fc_val1(x))
-        val = self.dp_val(val)
+        val = F.relu(self.fc_val1(x))
         val = self.fc_val2(val)
 
-        adv = F.leaky_relu(self.fc_adv1(x))
-        adv = self.dp_adv(adv)
+        adv = F.relu(self.fc_adv1(x))
         adv = self.fc_adv2(adv)
 
         return val + adv - adv.mean()

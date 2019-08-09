@@ -81,7 +81,7 @@ if __name__ == "__main__":
 
         # Load again the new screen: Initial State
         if state is None:
-            state = get_game_screen(screen, device)
+            state = get_state(screen, device)
 
         # Action and reward of the agent
         with torch.no_grad():
@@ -148,7 +148,7 @@ if __name__ == "__main__":
 
         # Draw appples
         if len(apples) == 0:
-            apples = get_apples(width, height)
+            apples = get_apples(width, height, get_snake_position(snake))
         for apple in apples:
             draw_object(screen, apple.color, apple.position)
 
@@ -158,7 +158,7 @@ if __name__ == "__main__":
 
         # Reload apples position after some time
         if steps_done % APPLE_RELOAD_STEPS == 0:
-            apples = get_apples(width, height)
+            apples = get_apples(width, height, get_snake_position(snake))
 
         # Print on the screen the score and other info
         # str_score = font.render(
@@ -167,19 +167,18 @@ if __name__ == "__main__":
         # screen.blit(str_score, (10, 10))
 
         # Next state for the agent
-        next_state = get_game_screen(screen, device)
+        next_state = None
         # Give some points because it alive
         if not stop_game:
             score = SNAKE_ALIVE_PRIZE if score == 0 else score
-        else:
-            next_state = None
+            next_state = get_next_state(screen, state, device)
 
         score = 0
         # Move to the next state
         state = next_state
 
         # Routines of pygame
-        clock.tick(FPS)
+        clock.tick(FPS_PLAY)
         pyg.display.update()
 
         # One step done in the whole game...

@@ -27,7 +27,7 @@ if __name__ == "__main__":
         "restart_models": False,
         "restart_optim": False,
         "random_clean_memory": False,
-        "opt": "adam",
+        "opt": "rmsprop",
     }
 
     # Load model
@@ -37,6 +37,12 @@ if __name__ == "__main__":
     )
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()
+
+    # Starting High learning rate
+    for param_group in optimizer.param_groups:
+        if param_group["lr"] != 1e-6:
+            param_group["lr"] = 1e-6
+            break
 
     # Memory
     # Short is garbage
@@ -51,10 +57,12 @@ if __name__ == "__main__":
     # Game Main loop
     for epoch in range(EPOCHS):
         if len(short_memory) > (BATCH_SIZE):
-            for param_group in optimizer.param_groups:
-                if param_group["lr"] != LEARNING_RATE:
-                    param_group["lr"] = LEARNING_RATE
-                    break
+            if steps_done % 5000 == 0:
+                # Decay learning rate
+                for param_group in optimizer.param_groups:
+                    if param_group["lr"] > LEARNING_RATE:
+                        param_group["lr"] = np.round(param_group["lr"] * 0.97, 10)
+                        break
 
             transitions = []
             for memory in [short_memory, good_long_memory, bad_long_memory]:
@@ -101,13 +109,13 @@ if __name__ == "__main__":
             expected_state_action_values[final_mask] = reward_batch[final_mask].detach()
 
             # Compute MSE loss
-            # loss = F.mse_loss(
-            #     state_action_values, expected_state_action_values.unsqueeze(1)
-            # )
-            # Compute Huber loss
-            loss = F.smooth_l1_loss(
+            loss = F.mse_loss(
                 state_action_values, expected_state_action_values.unsqueeze(1)
             )
+            # Compute Huber loss
+            # loss = F.smooth_l1_loss(
+            #     state_action_values, expected_state_action_values.unsqueeze(1)
+            # )
             vloss += [loss.item()]
             # Optimize the model
             optimizer.zero_grad()
@@ -140,12 +148,7 @@ if __name__ == "__main__":
             target_net.load_state_dict(policy_net.state_dict())
             vloss = [0]
 
-        if steps_done % MODEL_SAVE == 0:
-            memories = {
-                "short": short_memory,
-                "good": good_long_memory,
-                "bad": bad_long_memory,
-            }
-            save_model(md_name, policy_net, target_net, optimizer, memories)
         # One step done in the whole game...
         steps_done += 1
+    memories = {"short": short_memory, "good": good_long_memory, "bad": bad_long_memory}
+    save_model(md_name, policy_net, target_net, optimizer, memories)
