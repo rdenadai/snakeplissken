@@ -40,8 +40,8 @@ if __name__ == "__main__":
 
     # Starting High learning rate
     for param_group in optimizer.param_groups:
-        if param_group["lr"] != 1e-6:
-            param_group["lr"] = 1e-6
+        if param_group["lr"] != 1e-8:
+            param_group["lr"] = 1e-8
             break
 
     # Memory
@@ -89,7 +89,6 @@ if __name__ == "__main__":
             action_batch = torch.cat(batch.action)
             reward_batch = torch.cat(batch.reward)
 
-            reward_batch.data.clamp_(-1, 1)
             # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
             # columns of actions taken. These are the actions which would've been taken
             # for each batch state according to policy_net

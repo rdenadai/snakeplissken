@@ -89,8 +89,8 @@ if __name__ == "__main__":
 
     # Starting High learning rate
     for param_group in optimizer.param_groups:
-        if param_group["lr"] != 5e-6:
-            param_group["lr"] = 5e-6
+        if param_group["lr"] != 1e-6:
+            param_group["lr"] = 1e-6
             break
 
     # Memory
