@@ -205,3 +205,14 @@ def load_model_only(md_name, n_actions, device):
     policy_net.load_state_dict(checkpoint["dqn"])
     target_net.load_state_dict(checkpoint["target"])
     return policy_net, target_net
+
+
+def save_model_only(md_name, n_actions, device):
+    policy_net = DuelingDQN(n_actions).to(device)
+    target_net = DuelingDQN(n_actions).to(device)
+    checkpoint = torch.load(md_name, map_location=device)
+    policy_net.load_state_dict(checkpoint["dqn"])
+    target_net.load_state_dict(checkpoint["target"])
+    torch.save(
+        {"dqn": policy_net.state_dict(), "target": target_net.state_dict()}, md_name
+    )
