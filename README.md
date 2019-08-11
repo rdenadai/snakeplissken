@@ -30,3 +30,5 @@ To know more: [Dueling Network Architectures for Deep Reinforcement Learning](ht
 ### Example of playing
 
 ![Agent Playing](https://github.com/rdenadai/snakeplissken/blob/master/img/snake.gif)
+
+![Agent Playing](https://github.com/rdenadai/snakeplissken/blob/master/img/snake2.gif)
